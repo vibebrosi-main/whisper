@@ -18,6 +18,7 @@
  */
 
 import { encodeWav } from './wav.js';
+import { stripHallucinations } from '../../core/text.js';
 
 export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8899';
 
@@ -101,9 +102,9 @@ export class WhisperLocalClient {
  * w transkrypcie chcemy jedną, czystą linię.
  */
 export function cleanText(raw) {
-  return String(raw ?? '')
+  return stripHallucinations(String(raw ?? '')
     .replace(/\[[^\]]*\]/g, ' ')       // [BLANK_AUDIO], [Muzyka] itd.
     .replace(/\([^)]*\)/g, ' ')        // (szum), (music)
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim());
 }

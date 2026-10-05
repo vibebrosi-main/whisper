@@ -115,7 +115,7 @@ public final class AppSettings: ObservableObject {
         case language, modelID, assistantEnabled, autoAsk, useMicrophone, assistantBackend, claudeModel
         case markdownLocale, absoluteTimestamps, minConfidence, title, projectContextPath
         case asrBackend, whisperModel, whisperPort, autoStartWhisper, identifySpeakers
-        case diarizeAfter, detectMeetings, autoStartOnMeeting
+        case diarizeAfter, detectMeetings, autoStartOnMeeting, followOBS
     }
 
     /// Domyślny język mowy bierzemy z systemu, a nie na sztywno — inaczej
@@ -164,6 +164,7 @@ public final class AppSettings: ObservableObject {
             // nagrywa samo — dlatego może być włączone od razu.
             Key.detectMeetings.rawValue: true,
             Key.autoStartOnMeeting.rawValue: false,
+            Key.followOBS.rawValue: true,
         ])
     }
 
@@ -287,6 +288,12 @@ public final class AppSettings: ObservableObject {
     public var autoStartOnMeeting: Bool {
         get { get(.autoStartOnMeeting, false) }
         set { set(.autoStartOnMeeting, newValue) }
+    }
+
+    /// Nasłuch razem z nagrywaniem w OBS, transkrypt obok pliku wideo.
+    public var followOBS: Bool {
+        get { get(.followOBS, true) }
+        set { set(.followOBS, newValue) }
     }
 
     /// Silnik rozpoznawania mowy.

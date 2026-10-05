@@ -117,6 +117,19 @@ const questionCases = [
   // Pytanie z przecinkami: pytajnik pada dopiero w trzeciej frazie.
   'Dobra, a teraz coś trudniejszego. Czy ktoś wie, co się dzieje ze statusem wykonania, gdy aplikacja stoi w tle przez całą noc i mija północ?',
   'Czekaj, czyli swipe nie usuwa nawyku? To gdzie jest usuwanie i czy jest potwierdzenie?',
+  // Regresje z rozmowy kwalifikacyjnej: zaimki względne, kropka, potwierdzenia.
+  'Podobało mi się, jak zrobiłeś. Kiedy będę miał parę pytań bardziej do Ciebie, takich ogólnych.',
+  'Raportowanie godzin, czy tam estymacja zadań będzie również na ClickUpie.',
+  'trzy miesiące. na takim pełen metacie. A co dalej będzie, to nie wiadomo. Plany są jakby na rozwój.',
+  'To jeżeli miałbyś tak określić, na przykład, ile już...',
+  'Mieliś doświadczenie, designerem byłeś tylko, tak?',
+  'Okej, no bo mówisz o tej firmie na pełnym etacie, której nie ma w CV, tak? W sensie, czy ona gdzieś jest?',
+  'Dobra. Fajnie. Dobra, a powiedz mi, jak długo programujesz? Bo tam widziałem, że na początku',
+  'Okej, a jak twoja praca wyglądała jako pełen etat? I jakie to były firmy? I jak to był podział? Bo ciągle mówisz.',
+  'Dziękuje za uwagę. Okej, ale to byś poszył jakby oddzielny komponent do tego, na jednym byś to wszystko zrobił?',
+  'Pracowałeś firmy jako frontendowiec o full stack, to ile to będzie lat? Rok? Dwa?',
+  'Używasz Next.js czy Node.js do backendu?',
+  'Okej, ale... od node\'a jakieś frameworki, na przykład Next.js, Hono, czy też nie?',
 ].map((text) => {
   const v = detectQuestion(text);
   return { text, isQuestion: v.isQuestion, confidence: v.confidence, reason: v.reason, question: v.question };
@@ -225,6 +238,10 @@ const cleanCases = [
   '[BLANK_AUDIO]',
   'tekst [Muzyka] dalej (szum) koniec',
   '  wiele   spacji  ',
+  // Halucynacje whispera na ciszy (prawdziwe wyjście z rozmowy 2026-09-23).
+  ' Dziękuje za uwagę. Okej, a powiedz mi, jakbyś to zrobił?',
+  'Zdjękuje za oglądanie! A z jakich menedżerów stanu korzystałeś?',
+  'Dziękuję za uwagę.',
 ].map((input) => ({ input, result: cleanText(input) }));
 
 const out = {

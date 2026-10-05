@@ -635,6 +635,30 @@ tekst w trakcie pisania — do magazynu trafiały wtedy niepełne klucze i wraca
 nagłówek `Bearer xpl_…\n` i ten sam błąd, który wygląda na zły klucz, a jest
 złym wklejeniem.
 
+### Nagrywanie razem z OBS
+
+**Słuchaj** uruchamia OBS, jeśli nie działa, i włącza w nim nagrywanie.
+**Zatrzymaj** kończy nagranie i zapisuje transkrypt obok pliku wideo, z tą
+samą nazwą: `2026-10-05 22-30-00.mkv` dostaje sąsiada `2026-10-05 22-30-00.md`.
+Znaczniki czasu liczą się od startu nagrania OBS, więc `[00:01:05]` w tekście
+to 1:05 w filmie. Działa też odwrotnie: nagranie włączone ręcznie w OBS
+włącza nasłuch, a jego stop kończy oba.
+
+Połączenie idzie przez obs-websocket (wbudowany w OBS 28+), a port i hasło
+call-whisper czyta z pliku konfiguracji OBS. Gdy OBS jest zamknięty,
+call-whisper sam włącza w tej konfiguracji serwer WebSocket przed
+uruchomieniem OBS. Działającemu OBS nie da się tego zmienić z zewnątrz, więc
+wtedy trzeba raz kliknąć w OBS: **Narzędzia → Ustawienia serwera WebSocket →
+Włącz serwer WebSocket**. Pliku konfiguracji, którego jeszcze nie ma,
+call-whisper nie zakłada: serwer bez hasła słucha na wszystkich interfejsach.
+
+Gdy OBS zawiedzie (brak programu, wyłączony serwer, brak odpowiedzi),
+nasłuch i tak rusza, tylko bez wideo, a powód widać w oknie. Wyłącznik jest
+w Ustawieniach, w sekcji OBS.
+
+Ograniczenie: pauza w OBS nie jest uwzględniana, więc po wznowieniu czasy
+w transkrypcie wyprzedzają film o długość pauzy.
+
 ### Czego wersja natywna jeszcze nie ma
 
 - **Trybu napisów Meet.** Czytanie DOM-u Meeta wymaga bycia w przeglądarce,
@@ -834,6 +858,28 @@ nie czego odpowiedzieć.
 Dopasowanie idzie po tekście złożonym do ASCII: w mowie szyk jest swobodny
 („czy mnie słychać" vs „czy słychać mnie"), a `\b` w JS nie stawia granicy
 wokół polskich liter — `\bsłychać\b` nie dopasowuje się do niczego.
+
+Ocena idzie zdanie po zdaniu, a nie po frazach. Na prawdziwej rozmowie
+kwalifikacyjnej (23 min, whisper small) dawne podejście, które liczyło słowo
+pytające na początku dowolnej frazy, uznało za pytania 48 ze 158 wypowiedzi,
+w tym „Podobało mi się, **jak** zrobiłeś”, „praca, **która** była” i „A **co**
+dalej będzie, to nie wiadomo.”. Obecne reguły zostawiają 31 i każde z nich to
+faktyczne pytanie:
+
+- Słowo pytające liczy się tylko na początku zdania, po wypełniaczach („Okej,
+  dobra, a jak…”) albo po wstępie („mam pytanie, czym…”, „powiedz mi, ile…”).
+  Po zwykłej frazie to prawie zawsze zaimek względny albo spójnik.
+- Kropka od whispera osłabia słowo pytające, a wielokropek oznacza urwaną myśl.
+  Pełną wagę ma ono tylko z pytajnikiem albo w tekście bez interpunkcji
+  (napisy Meet).
+- Samo „…, tak?” albo „…, nie?” to prośba o potwierdzenie, nie pytanie do
+  asystenta. Zostaje za to jako kontekst, gdy zaraz po nim pada właściwe
+  pytanie.
+- Do modelu idzie całe pytanie razem z serią pytań po nim („Ile to będzie lat?
+  Rok? Dwa?”), bez wstępu i bez tego, co padło po nim.
+- Halucynacje whispera na ciszy („Dziękuję za uwagę.”, „Dzięki za
+  oglądanie!”) wycinamy już z transkryptu. W tamtej rozmowie pojawiały się
+  co minutę.
 
 ### Bezpieczeństwo mostu
 

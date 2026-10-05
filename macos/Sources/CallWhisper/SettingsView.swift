@@ -4,6 +4,7 @@ import CallWhisperCore
 
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
+    @ObservedObject var obs: OBSLink
     @State private var probeResult: String?
     @State private var probing = false
     @State private var modelStatus: String = "sprawdzam…"
@@ -18,6 +19,17 @@ struct SettingsView: View {
     /// Keychaina trafiały niepełne klucze.
     @State private var keyDraft = ""
     @State private var keySaved: Bool?
+
+    private var obsStatus: String {
+        switch obs.state {
+        case .off: return "Wyłączone"
+        case .waiting: return "OBS nie działa. „Słuchaj” uruchomi go sam."
+        case .serverDisabled: return "W OBS włącz serwer: Narzędzia → Ustawienia serwera WebSocket → Włącz serwer WebSocket"
+        case .wrongPassword: return "OBS odrzucił hasło. Zapisz ustawienia serwera WebSocket w OBS jeszcze raz."
+        case .connected: return "Połączono z OBS"
+        case .recording: return "OBS nagrywa, call-whisper słucha"
+        }
+    }
 
     var body: some View {
         TabView {
@@ -72,6 +84,17 @@ struct SettingsView: View {
                         get: { settings.autoStartOnMeeting }, set: { settings.autoStartOnMeeting = $0 }))
                 }
                 Text("Rozmowa to mikrofon w użyciu plus działający Zoom, Teams, FaceTime, Slack, Discord, Webex albo przeglądarka na pierwszym planie (Google Meet). Sprawdzane co 2 s, bez żadnych dodatkowych zgód.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("OBS") {
+                Toggle("Nagrywaj wideo w OBS razem z nasłuchem", isOn: Binding(
+                    get: { settings.followOBS }, set: { settings.followOBS = $0 }))
+                if settings.followOBS {
+                    Text(obsStatus).font(.caption)
+                        .foregroundStyle(obs.state == .connected || obs.state == .recording ? Color.secondary : Color.orange)
+                }
+                Text("„Słuchaj” uruchamia OBS, jeśli nie działa, i włącza w nim nagrywanie; „Zatrzymaj” je kończy i zapisuje transkrypt obok pliku wideo, z tą samą nazwą i rozszerzeniem .md. Czasy liczą się od początku nagrania, więc zgadzają się z osią filmu. Działa też odwrotnie: nagranie włączone w OBS włącza nasłuch. Hasło i port czytamy z ustawień OBS.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

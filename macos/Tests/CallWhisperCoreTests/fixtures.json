@@ -143,15 +143,15 @@
     {
       "text": "A jakie RPO i RTO to nam daje?",
       "isQuestion": true,
-      "confidence": 0.95,
+      "confidence": 1,
       "reason": "pytajnik+słowo-pytające",
-      "question": "A jakie RPO i RTO to nam daje"
+      "question": "A jakie RPO i RTO to nam daje?"
     },
     {
       "text": "Wracając do migracji, mam pytanie, czym różni się RPO od RTO",
       "isQuestion": true,
-      "confidence": 0.8500000000000001,
-      "reason": "słowo-pytające-w-środku+zwrot-pytający",
+      "confidence": 0.8,
+      "reason": "słowo-pytające+zwrot-pytający",
       "question": "czym różni się RPO od RTO"
     },
     {
@@ -171,7 +171,7 @@
     {
       "text": "Czy ktoś wie ile to kosztuje",
       "isQuestion": true,
-      "confidence": 0.75,
+      "confidence": 0.8,
       "reason": "słowo-pytające+zwrot-pytający",
       "question": "Czy ktoś wie ile to kosztuje"
     },
@@ -185,7 +185,7 @@
     {
       "text": "Ile mamy czasu do końca sprintu",
       "isQuestion": true,
-      "confidence": 0.35,
+      "confidence": 0.4,
       "reason": "słowo-pytające",
       "question": "Ile mamy czasu do końca sprintu"
     },
@@ -206,28 +206,28 @@
     {
       "text": "What does this endpoint return",
       "isQuestion": true,
-      "confidence": 0.75,
+      "confidence": 0.8,
       "reason": "słowo-pytające+zwrot-pytający",
       "question": "What does this endpoint return"
     },
     {
       "text": "Od której wersji API dostępny jest Predictive Back",
       "isQuestion": true,
-      "confidence": 0.35,
+      "confidence": 0.4,
       "reason": "słowo-pytające",
       "question": "Od której wersji API dostępny jest Predictive Back"
     },
     {
       "text": "A jak to wpłynie na czas budowania w Gradle",
       "isQuestion": true,
-      "confidence": 0.35,
+      "confidence": 0.4,
       "reason": "słowo-pytające",
       "question": "A jak to wpłynie na czas budowania w Gradle"
     },
     {
       "text": "Czy ktoś wie jak dokładnie działa remember w Compose",
       "isQuestion": true,
-      "confidence": 0.75,
+      "confidence": 0.8,
       "reason": "słowo-pytające+zwrot-pytający",
       "question": "Czy ktoś wie jak dokładnie działa remember w Compose"
     },
@@ -236,42 +236,126 @@
       "isQuestion": false,
       "confidence": 0,
       "reason": "brak-sygnałów",
-      "question": "A potem wrócimy do listy transakcji"
+      "question": ""
     },
     {
       "text": "No i tyle w tym temacie",
       "isQuestion": false,
       "confidence": 0,
       "reason": "brak-sygnałów",
-      "question": "No i tyle w tym temacie"
+      "question": ""
     },
     {
       "text": "Shared Flow do zdarzeń jednorazowych, takich jak nawigacja. Wracając do listy mam pytanie, czy LazyColumn recyklinguje elementy tak samo jak RecyclerView? Nie do końca tak samo, ale efekt jest podobny.",
       "isQuestion": true,
-      "confidence": 0.8500000000000001,
-      "reason": "słowo-pytające-w-środku+zwrot-pytający",
-      "question": "czy LazyColumn recyklinguje elementy tak samo jak RecyclerView"
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające+zwrot-pytający",
+      "question": "czy LazyColumn recyklinguje elementy tak samo jak RecyclerView?"
     },
     {
       "text": "Dobra. Teraz o wydajności. Czy ktoś wie, jak dokładnie działa remember w Compose? Remember zapamiętuje wartość w slocie kompozycji.",
       "isQuestion": true,
-      "confidence": 0.8500000000000001,
-      "reason": "słowo-pytające-w-środku+zwrot-pytający",
-      "question": "Czy ktoś wie, jak dokładnie działa remember w Compose"
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające+zwrot-pytający",
+      "question": "Czy ktoś wie, jak dokładnie działa remember w Compose?"
     },
     {
       "text": "Dobra, a teraz coś trudniejszego. Czy ktoś wie, co się dzieje ze statusem wykonania, gdy aplikacja stoi w tle przez całą noc i mija północ?",
       "isQuestion": true,
       "confidence": 1,
-      "reason": "pytajnik+słowo-pytające-w-środku+zwrot-pytający",
-      "question": "Czy ktoś wie, co się dzieje ze statusem wykonania, gdy aplikacja stoi w tle przez całą noc i mija północ"
+      "reason": "pytajnik+słowo-pytające+zwrot-pytający",
+      "question": "Czy ktoś wie, co się dzieje ze statusem wykonania, gdy aplikacja stoi w tle przez całą noc i mija północ?"
     },
     {
       "text": "Czekaj, czyli swipe nie usuwa nawyku? To gdzie jest usuwanie i czy jest potwierdzenie?",
       "isQuestion": true,
       "confidence": 1,
-      "reason": "pytajnik+słowo-pytające-w-środku",
-      "question": "To gdzie jest usuwanie i czy jest potwierdzenie"
+      "reason": "pytajnik+słowo-pytające",
+      "question": "czyli swipe nie usuwa nawyku? To gdzie jest usuwanie i czy jest potwierdzenie?"
+    },
+    {
+      "text": "Podobało mi się, jak zrobiłeś. Kiedy będę miał parę pytań bardziej do Ciebie, takich ogólnych.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "Raportowanie godzin, czy tam estymacja zadań będzie również na ClickUpie.",
+      "isQuestion": false,
+      "confidence": 0,
+      "reason": "brak-sygnałów",
+      "question": ""
+    },
+    {
+      "text": "trzy miesiące. na takim pełen metacie. A co dalej będzie, to nie wiadomo. Plany są jakby na rozwój.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "To jeżeli miałbyś tak określić, na przykład, ile już...",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "Mieliś doświadczenie, designerem byłeś tylko, tak?",
+      "isQuestion": false,
+      "confidence": 0.25,
+      "reason": "potwierdzenie",
+      "question": ""
+    },
+    {
+      "text": "Okej, no bo mówisz o tej firmie na pełnym etacie, której nie ma w CV, tak? W sensie, czy ona gdzieś jest?",
+      "isQuestion": true,
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające",
+      "question": "no bo mówisz o tej firmie na pełnym etacie, której nie ma w CV, tak? W sensie, czy ona gdzieś jest?"
+    },
+    {
+      "text": "Dobra. Fajnie. Dobra, a powiedz mi, jak długo programujesz? Bo tam widziałem, że na początku",
+      "isQuestion": true,
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające",
+      "question": "jak długo programujesz?"
+    },
+    {
+      "text": "Okej, a jak twoja praca wyglądała jako pełen etat? I jakie to były firmy? I jak to był podział? Bo ciągle mówisz.",
+      "isQuestion": true,
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające",
+      "question": "a jak twoja praca wyglądała jako pełen etat? I jakie to były firmy? I jak to był podział?"
+    },
+    {
+      "text": "Dziękuje za uwagę. Okej, ale to byś poszył jakby oddzielny komponent do tego, na jednym byś to wszystko zrobił?",
+      "isQuestion": true,
+      "confidence": 0.6,
+      "reason": "pytajnik",
+      "question": "ale to byś poszył jakby oddzielny komponent do tego, na jednym byś to wszystko zrobił?"
+    },
+    {
+      "text": "Pracowałeś firmy jako frontendowiec o full stack, to ile to będzie lat? Rok? Dwa?",
+      "isQuestion": true,
+      "confidence": 0.6,
+      "reason": "pytajnik",
+      "question": "Pracowałeś firmy jako frontendowiec o full stack, to ile to będzie lat? Rok? Dwa?"
+    },
+    {
+      "text": "Używasz Next.js czy Node.js do backendu?",
+      "isQuestion": true,
+      "confidence": 0.6,
+      "reason": "pytajnik",
+      "question": "Używasz Next.js czy Node.js do backendu?"
+    },
+    {
+      "text": "Okej, ale... od node'a jakieś frameworki, na przykład Next.js, Hono, czy też nie?",
+      "isQuestion": true,
+      "confidence": 0.6,
+      "reason": "pytajnik",
+      "question": "od node'a jakieś frameworki, na przykład Next.js, Hono, czy też nie?"
     }
   ],
   "clauseCases": [
@@ -899,6 +983,18 @@
     {
       "input": "  wiele   spacji  ",
       "result": "wiele spacji"
+    },
+    {
+      "input": " Dziękuje za uwagę. Okej, a powiedz mi, jakbyś to zrobił?",
+      "result": "Okej, a powiedz mi, jakbyś to zrobił?"
+    },
+    {
+      "input": "Zdjękuje za oglądanie! A z jakich menedżerów stanu korzystałeś?",
+      "result": "A z jakich menedżerów stanu korzystałeś?"
+    },
+    {
+      "input": "Dziękuję za uwagę.",
+      "result": ""
     }
   ]
 }

@@ -5,6 +5,8 @@ import {
   buildPrompt,
   AssistantSession,
   splitClauses,
+  splitSentences,
+  stripHallucinations,
   fold,
 } from '../extension/src/core/assistant.js';
 import { isAllowedOrigin, createBridge } from '../assistant/server.mjs';
@@ -274,17 +276,70 @@ test('pytanie w środku wypowiedzi jest wykrywane', () => {
   const result = detectQuestion(real);
 
   assert.equal(result.isQuestion, true, 'pytanie w środku zdania musi się liczyć');
-  assert.match(result.reason, /słowo-pytające-w-środku/);
+  assert.match(result.reason, /słowo-pytające/);
   assert.ok(result.question.startsWith('czym właściwie'), `wyciągnięto: ${result.question}`);
   assert.ok(!result.question.includes('Wracając'), 'dygresja przed pytaniem odcięta');
 });
 
-test('pytanie w środku ma wyższą pewność niż na początku', () => {
-  // Otwarcie frazy słowem pytającym w środku zdania to mocniejszy sygnał niż
-  // na starcie, gdzie „co" czy „jak" bywa częścią zdania oznajmującego.
-  const middle = detectQuestion('Dobra, to jeszcze jedno, ile nas to będzie kosztowało');
-  const start = detectQuestion('ile nas to będzie kosztowało miesięcznie');
-  assert.ok(middle.confidence > start.confidence);
+test('słowo pytające liczy się po wstępie, a nie po zwykłej frazie', () => {
+  // Po wstępie („to jeszcze jedno", „powiedz mi") zaczyna się pytanie.
+  assert.equal(detectQuestion('Dobra, to jeszcze jedno, ile nas to będzie kosztowało').isQuestion, true);
+  assert.equal(detectQuestion('Okej, a powiedz mi, jak długo programujesz?').question, 'jak długo programujesz?');
+  // Po zwykłej frazie to zaimek względny albo spójnik, nie pytanie.
+  for (const text of [
+    'Podobało mi się, jak zrobiłeś. Kiedy będę miał parę pytań bardziej do Ciebie, takich ogólnych.',
+    'No i pewnie praca wymuszała, że szukali osoby, która zrobi wszystko generalnie.',
+    'Raportowanie godzin, czy tam estymacja zadań będzie również na ClickUpie.',
+    'W sensie, zaczynałeś od grafiki chyba DTP, jak widziałem. Potem programista i... Ciekawe, ciekawe.',
+  ]) {
+    assert.equal(detectQuestion(text).isQuestion, false, text);
+  }
+});
+
+/* ---------- regresje z rozmowy kwalifikacyjnej (whisper small, 2026-09-23) ---------- */
+
+test('kropka od ASR osłabia słowo pytające, wielokropek też', () => {
+  for (const text of [
+    'trzy miesiące. na takim pełen metacie. A co dalej będzie, to nie wiadomo. Plany są jakby na rozwój.',
+    'To jeżeli miałbyś tak określić, na przykład, ile już...',
+    'jak to u Ciebie wyglądało, bo nietypowy kierunek tak naprawdę.',
+  ]) {
+    assert.equal(detectQuestion(text).isQuestion, false, text);
+  }
+});
+
+test('samo potwierdzenie „…, tak?" nie jest pytaniem do asystenta', () => {
+  for (const text of [
+    'Tak, tak. Masz tam dialog, dialog trigger, dialog portal, dialog close i tak dalej, nie?',
+    'Mieliś doświadczenie, designerem byłeś tylko, tak?',
+  ]) {
+    assert.equal(detectQuestion(text).isQuestion, false, text);
+  }
+});
+
+test('potwierdzenie przed pytaniem zostaje jako kontekst', () => {
+  const result = detectQuestion('Okej, no bo mówisz o tej firmie na pełnym etacie, której nie ma w CV, tak? W sensie, czy ona gdzieś jest?');
+  assert.equal(result.isQuestion, true);
+  assert.equal(result.question, 'no bo mówisz o tej firmie na pełnym etacie, której nie ma w CV, tak? W sensie, czy ona gdzieś jest?');
+});
+
+test('pytanie jest wycinane w całości, z serią pytań po nim', () => {
+  const result = detectQuestion('Okej, a jak twoja praca wyglądała jako pełen etat? I jakie to były firmy? Bo ciągle mówisz, że pracowałeś.');
+  assert.equal(result.question, 'a jak twoja praca wyglądała jako pełen etat? I jakie to były firmy?');
+});
+
+test('halucynacje whispera nie trafiają do pytania', () => {
+  const result = detectQuestion('Dziękuje za uwagę. Okej, ale to byś zrobił oddzielny komponent do tego?');
+  assert.equal(result.question, 'ale to byś zrobił oddzielny komponent do tego?');
+  assert.equal(stripHallucinations('Zdjękuje za oglądanie! A z jakich menedżerów stanu korzystałeś?'),
+    'A z jakich menedżerów stanu korzystałeś?');
+  assert.equal(stripHallucinations('Dziękuję za uwagę.'), '');
+});
+
+test('kropka w nazwie nie dzieli zdania', () => {
+  assert.deepEqual(splitSentences('Używasz Next.js czy Node.js? Tak.').map((s) => s.text),
+    ['Używasz Next.js czy Node.js', 'Tak']);
+  assert.deepEqual(splitSentences('Czekaj... co?').map((s) => s.end), ['…', '?']);
 });
 
 test('splitClauses tnie po interpunkcji, którą daje ASR', () => {

@@ -84,3 +84,14 @@ export function truncate(text, max = 120) {
   const t = normalize(text);
   return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
 }
+
+/**
+ * Typowe halucynacje whispera na ciszy i szumie. Nikt nie kończy w ten sposób
+ * rozmowy kwalifikacyjnej co minutę, a doklejone do pytania psują prompt.
+ */
+const HALLUCINATIONS = /(?:^|(?<=[\s.,!?]))(?:z?dzi[eę]kuj[eę]|zdj[eę]kuj[eę]|dzi[eę]ki)\s+(?:bardzo\s+)?za\s+(?:uwag[eę]|ogl[aą]danie|obejrzenie)[.!]*|napisy\s+(?:stworzone|wykonane)\s+przez[^.!?]*[.!?]?/giu;
+
+/** Usuwa znane halucynacje whispera („Dziękuję za uwagę."). */
+export function stripHallucinations(text) {
+  return normalize(String(text ?? '').replace(HALLUCINATIONS, ' '));
+}

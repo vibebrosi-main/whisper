@@ -15,7 +15,11 @@ struct MainView: View {
     @State private var manualQuestion = ""
     @State private var dropTargeted = false
     @State private var exportingForClaude = false
-    @State private var copiedNote = false
+    /// Krótkie potwierdzenie w pasku stanu („Skopiowano 3 wypowiedzi").
+    @State private var copiedMessage: String?
+    /// Zaznaczone dymki do skopiowania naraz i punkt zaczepienia Shift+klik.
+    @State private var selection: Set<String> = []
+    @State private var selectionAnchor: String?
     @State private var busy = false
     @State private var showSetup = false
     @State private var attachment: AssistantImage?
@@ -88,10 +92,12 @@ struct MainView: View {
 
             // Podpowiedzi bywają hałasem (film, monolog), więc wyłącznik musi
             // być pod ręką. Wariant „selected" przycisku-ikony M3 pokazuje stan.
+            // Ikona ta sama w obu stanach: „sparkles.slash" nie istnieje w SF
+            // Symbols i SwiftUI rysuje wtedy puste miejsce.
             Button {
                 settings.assistantEnabled.toggle()
             } label: {
-                Label("Podpowiedzi", systemImage: settings.assistantEnabled ? "sparkles" : "sparkles.slash")
+                Label("Podpowiedzi", systemImage: "sparkles")
             }
             .buttonStyle(M3IconButtonStyle(selected: settings.assistantEnabled))
             .help(settings.assistantEnabled
@@ -105,6 +111,18 @@ struct MainView: View {
             }
             .buttonStyle(M3IconButtonStyle(selected: overlay.isVisible))
             .help("Pływające okno z odpowiedziami, zostaje na wierzchu nad rozmową")
+
+            // Kopiowanie do czatu ma działać także w trakcie rozmowy, więc nie
+            // siedzi w menu eksportu, które jest wtedy wyłączone.
+            Button {
+                copy(recorder.segments, what: "cały transkrypt")
+            } label: {
+                Label("Kopiuj transkrypt", systemImage: "doc.on.doc")
+            }
+            .buttonStyle(M3IconButtonStyle())
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+            .disabled(recorder.segments.isEmpty)
+            .help("Kopiuj wszystkie wypowiedzi do wklejenia w czat (⌘⇧C)")
 
             Menu {
                 Button("Kopiuj Markdown") {
@@ -158,7 +176,11 @@ struct MainView: View {
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: 20) {
                                 ForEach(recorder.segments, id: \.id) { segment in
-                                    SegmentRow(segment: segment).id(segment.id)
+                                    SegmentRow(segment: segment,
+                                               isSelected: selection.contains(segment.id),
+                                               onToggle: { toggleSelection(segment.id) },
+                                               onCopy: { copy([segment], what: "wypowiedź") })
+                                        .id(segment.id)
                                 }
                             }
                             .padding(.horizontal, 24)
@@ -176,6 +198,9 @@ struct MainView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             listenFAB.padding(20)
+        }
+        .overlay(alignment: .top) {
+            if !selection.isEmpty { selectionBar.padding(12) }
         }
         .background(M3.color.card, in: RoundedRectangle(cornerRadius: M3.shape.large))
         .overlay {
@@ -433,8 +458,8 @@ struct MainView: View {
                         .scaleEffect(0.85)
                 }
                 Spacer()
-                if copiedNote {
-                    Label("Skopiowano dla Claude", systemImage: "checkmark")
+                if let copiedMessage {
+                    Label(copiedMessage, systemImage: "checkmark")
                         .font(M3.type.labelMedium)
                         .foregroundStyle(M3.color.tertiary)
                 }
@@ -474,9 +499,72 @@ struct MainView: View {
             let note = (try? await recorder.claudeNote()) ?? recorder.markdown
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(note, forType: .string)
-            copiedNote = true
+            flash("Skopiowano dla Claude")
+        }
+    }
+
+    // MARK: - kopiowanie wypowiedzi
+
+    /// Pasek nad transkryptem, widoczny tylko przy zaznaczeniu. ⌘C działa tu
+    /// tylko wtedy, gdy coś jest zaznaczone, więc nie zabiera skrótu polu pytania.
+    private var selectionBar: some View {
+        HStack(spacing: 8) {
+            Text(selection.count == 1 ? "Zaznaczono 1 wypowiedź" : "Zaznaczono \(selection.count) wypowiedzi")
+                .font(M3.type.labelLarge)
+                .foregroundStyle(M3.color.onSecondaryContainer)
+                .padding(.leading, 8)
+            Spacer(minLength: 8)
+            Button("Zaznacz wszystko") { selection = Set(recorder.segments.map(\.id)) }
+                .buttonStyle(M3ButtonStyle(kind: .text, compact: true))
+            Button("Wyczyść") { clearSelection() }
+                .buttonStyle(M3ButtonStyle(kind: .text, compact: true))
+                .keyboardShortcut(.cancelAction)
+            Button {
+                copy(recorder.segments.filter { selection.contains($0.id) }, what: nil)
+                clearSelection()
+            } label: {
+                Label("Kopiuj", systemImage: "doc.on.doc")
+            }
+            .buttonStyle(M3ButtonStyle(kind: .filled, compact: true))
+            .keyboardShortcut("c", modifiers: .command)
+        }
+        .padding(8)
+        .background(M3.color.secondaryContainer, in: Capsule())
+        .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+    }
+
+    /// Klik zaznacza albo odznacza dymek, Shift+klik zaznacza zakres od
+    /// poprzednio klikniętego.
+    private func toggleSelection(_ id: String) {
+        let ids = recorder.segments.map(\.id)
+        if NSEvent.modifierFlags.contains(.shift), let anchor = selectionAnchor,
+           let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) {
+            selection.formUnion(ids[min(a, b)...max(a, b)])
+        } else if selection.contains(id) {
+            selection.remove(id)
+        } else {
+            selection.insert(id)
+        }
+        selectionAnchor = id
+    }
+
+    private func clearSelection() {
+        selection = []
+        selectionAnchor = nil
+    }
+
+    private func copy(_ segments: [Segment], what: String?) {
+        guard !segments.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(Markdown.chatText(segments), forType: .string)
+        flash("Skopiowano " + (what ?? (segments.count == 1 ? "1 wypowiedź" : "\(segments.count) wypowiedzi")))
+    }
+
+    private func flash(_ message: String) {
+        copiedMessage = message
+        Task {
             try? await Task.sleep(for: .seconds(3))
-            copiedNote = false
+            if copiedMessage == message { copiedMessage = nil }
         }
     }
 
@@ -494,10 +582,28 @@ struct MainView: View {
 /// Wypowiedź: awatar z inicjałem (jak w Gmailu), nazwa, czas, treść.
 struct SegmentRow: View {
     let segment: Segment
+    var isSelected = false
+    var onToggle: () -> Void = {}
+    var onCopy: () -> Void = {}
+    @State private var hovered = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            SpeakerAvatar(name: segment.speaker)
+            // Awatar służy też za pole wyboru: tekst obok zostaje do zwykłego
+            // zaznaczania myszką.
+            Button(action: onToggle) {
+                ZStack {
+                    SpeakerAvatar(name: segment.speaker).opacity(isSelected ? 0 : 1)
+                    if isSelected {
+                        Circle().fill(M3.color.primary).frame(width: 40, height: 40)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(M3.color.onPrimary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .help("Zaznacz do skopiowania (Shift+klik: zakres)")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(segment.speaker)
@@ -506,6 +612,15 @@ struct SegmentRow: View {
                     Text(TimeFormat.offset(segment.offsetMs))
                         .font(M3.type.labelSmall.monospacedDigit())
                         .foregroundStyle(M3.color.onSurfaceVariant)
+                    if hovered {
+                        Button(action: onCopy) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 12))
+                                .foregroundStyle(M3.color.onSurfaceVariant)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Kopiuj tę wypowiedź")
+                    }
                     if !segment.final {
                         Text("w trakcie")
                             .font(M3.type.labelSmall)
@@ -522,6 +637,11 @@ struct SegmentRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(isSelected ? M3.color.secondaryContainer.opacity(0.6) : .clear,
+                    in: RoundedRectangle(cornerRadius: M3.shape.medium))
+        .padding(-8)
+        .onHover { hovered = $0 }
     }
 }
 

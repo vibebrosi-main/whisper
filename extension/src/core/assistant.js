@@ -4,7 +4,9 @@
  * Czysta i testowalna — nie wie nic o HTTP, WebSocketach ani o Claude Code.
  */
 
-import { normalize } from './text.js';
+import { normalize, stripHallucinations } from './text.js';
+
+export { stripHallucinations };
 
 /** Słowa otwierające pytanie. Pytajnika w mowie nie ma — napisy go nie dają. */
 const QUESTION_OPENERS = {
@@ -97,121 +99,207 @@ export function splitClausesWithEnd(text) {
   return out;
 }
 
-/** Ile fraz doklejamy do pytania, gdy pytajnik nigdzie nie padł. */
-const MAX_QUESTION_CLAUSES = 2;
 /** Twardy limit długości pytania. Prompt ma być krótki, nie kompletny. */
 const MAX_QUESTION_CHARS = 220;
-/** Jak daleko szukamy pytajnika, zanim uznamy, że go nie ma. */
-const QUESTION_LOOKAHEAD = 6;
 
-const ALL_OPENERS = [...QUESTION_OPENERS.pl, ...QUESTION_OPENERS.en];
+const ALL_OPENERS = [...QUESTION_OPENERS.pl, ...QUESTION_OPENERS.en].map((o) => fold(o).split(' '));
 
 /**
- * Słówka, które w mowie stoją PRZED właściwym słowem pytającym.
- *
- * „A jak to wpłynie na czas budowania" i „Od której wersji jest dostępny" to
- * najzwyklejszy polski szyk, a sprawdzanie wyłącznie pierwszego słowa frazy
- * gubiło oba — bo `jak` i `ktorej` stały na drugiej pozycji. Bez pytajnika
- * (a mowa go nie zawsze daje) takie pytanie przepadało bez śladu.
+ * Słówka, które w mowie stoją PRZED właściwym słowem pytającym: „od której
+ * wersji", „w czym piszesz". Dopuszczamy najwyżej jedno.
  */
 const LEADING_PARTICLES = new Set([
-  'a', 'no', 'i', 'to', 'wiec', 'ale', 'czyli', 'oraz',
   'od', 'do', 'w', 'na', 'z', 'za', 'po', 'przy', 'dla', 'o', 'u',
 ]);
 
-/** Czy fraza zaczyna się od słowa pytającego, ewentualnie po jednym słówku. */
-function opensQuestion(clause) {
-  const all = fold(clause).split(/\s+/).filter(Boolean);
-  if (!all.length) return false;
+/**
+ * Słowa wypełniające i wstępy, po których dopiero zaczyna się treść:
+ * „Okej, dobra, a powiedz mi, jak długo programujesz?". Fraza złożona
+ * wyłącznie z nich jest wstępem, a nie treścią, i nie liczy się jako
+ * początek zdania.
+ */
+const FILLER_WORDS = new Set([
+  'okej', 'ok', 'okay', 'dobra', 'dobrze', 'no', 'tak', 'mhm', 'hmm', 'ehm', 'eh', 'yyy', 'aha',
+  'fajnie', 'super', 'jasne', 'swietnie', 'sluchaj', 'wiesz', 'czekaj', 'hej',
+  'a', 'i', 'to', 'wiec', 'ale', 'czyli', 'jeszcze', 'jedno', 'jakby', 'teraz',
+  'powiedz', 'powiedzcie', 'mi', 'nam', 'mam', 'pytanie', 'pytanko', 'w', 'sensie', 'znaczy',
+  'na', 'przyklad', 'generalnie', 'ogolnie', 'mozesz', 'mozecie', 'powiedziec',
+  'so', 'well', 'okay', 'alright', 'right', 'tell', 'me', 'question',
+]);
 
-  // Dopuszczamy najwyżej jedno słówko przed pytaniem — dwa to już zdanie,
-  // a nie wtrącenie, i zaczęłoby łapać zwykłe wypowiedzi.
+/** Końcówki, które z oznajmienia robią prośbę o potwierdzenie: „…, tak?". */
+const CONFIRMATION_TAGS = new Set(['tak', 'nie', 'prawda', 'no nie', 'nie prawda', 'right', 'yeah']);
+
+/**
+ * Dzieli wypowiedź na zdania, pamiętając, czym się kończyły: `?`, `.`, `!`,
+ * `…` (urwane) albo nic (koniec wypowiedzi bez interpunkcji).
+ *
+ * Kropka kończy zdanie tylko przed spacją albo na końcu: „Next.js" i „40 ml."
+ * to nie są dwa zdania. Dwie kropki i więcej to wielokropek.
+ */
+export function splitSentences(text) {
+  const out = [];
+  const source = String(text ?? '');
+  let buffer = '';
+  const push = (end) => {
+    const trimmed = buffer.trim();
+    if (trimmed) out.push({ text: trimmed, end });
+    buffer = '';
+  };
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '?' || ch === '!') {
+      let end = ch;
+      while (source[i + 1] === '?' || source[i + 1] === '!') { if (source[i + 1] === '?') end = '?'; i++; }
+      push(end);
+    } else if (ch === '…') {
+      push('…');
+    } else if (ch === '.') {
+      let run = 1;
+      while (source[i + run] === '.') run++;
+      if (run >= 2) { i += run - 1; push('…'); continue; }
+      const next = source[i + 1];
+      if (next === undefined || /\s/.test(next)) push('.');
+      else buffer += ch;
+    } else {
+      buffer += ch;
+    }
+  }
+  push('');
+  return out;
+}
+
+const words = (text) => fold(text).split(/[^a-z0-9']+/).filter(Boolean);
+const isFillerClause = (clause) => words(clause).every((w) => FILLER_WORDS.has(w));
+const hasAskPhrase = (text) => {
+  const folded = words(text).join(' ');
+  return ASK_PHRASES.some((phrase) => folded.includes(phrase));
+};
+
+/** Czy fraza zaczyna się od słowa pytającego (po wypełniaczach i jednym przyimku). */
+function opensQuestion(clause) {
+  let all = words(clause);
+  while (all.length && FILLER_WORDS.has(all[0]) && !ALL_OPENERS.some((o) => o[0] === all[0])) all = all.slice(1);
+  if (!all.length) return false;
   const starts = LEADING_PARTICLES.has(all[0]) ? [all, all.slice(1)] : [all];
-  return starts.some((words) =>
-    words.length > 0 &&
-    ALL_OPENERS.some((opener) => {
-      const parts = fold(opener).split(' ');
-      return parts.every((part, i) => words[i] === part);
-    }));
+  return starts.some((ws) => ws.length > 0 && ALL_OPENERS.some((parts) => parts.every((part, i) => ws[i] === part)));
 }
 
 /**
- * Czy wypowiedź wygląda na pytanie wymagające odpowiedzi merytorycznej.
- * @returns {{isQuestion: boolean, confidence: number, reason: string, question: string}}
+ * Frazy zdania razem z miejscem, w którym zaczynają się w tekście, żeby
+ * pytanie wyciąć z oryginału, a nie skleić na nowo.
  */
-export function detectQuestion(text) {
-  const raw = normalize(text);
-  const folded = fold(raw);
-  const words = folded ? folded.split(' ') : [];
+function clausesOf(sentence) {
+  const out = [];
+  let start = 0;
+  for (let i = 0; i <= sentence.length; i++) {
+    if (i === sentence.length || sentence[i] === ',' || sentence[i] === ';') {
+      const text = sentence.slice(start, i).trim();
+      if (text) out.push({ text, start });
+      start = i + 1;
+    }
+  }
+  return out;
+}
 
-  const no = (reason) => ({ isQuestion: false, confidence: 0, reason, question: '' });
+/**
+ * Ocena jednego zdania.
+ *
+ * Słowo pytające liczy się tylko na początku zdania: po wypełniaczach
+ * („Okej, dobra, a jak…") albo po wstępie („mam pytanie, czym…",
+ * „powiedz mi, ile…"). Po zwykłej frazie to prawie zawsze zaimek względny
+ * albo spójnik: „Podobało mi się, jak zrobiłeś", „praca, która była",
+ * „godzin, czy tam estymacja". Właśnie to dawało najwięcej fałszywych trafień.
+ */
+function scoreSentence(sentence) {
+  const clauses = clausesOf(sentence.text);
+  const first = clauses.findIndex((c) => !isFillerClause(c.text));
+  let head = first;
+  let opener = false;
+  for (let k = Math.max(first, 0); k < clauses.length; k++) {
+    const atStart = k === first;
+    const afterLead = k > 0 && (isFillerClause(clauses[k - 1].text) || hasAskPhrase(clauses[k - 1].text));
+    if (!atStart && !afterLead) continue;
+    if (opensQuestion(clauses[k].text)) { opener = true; head = k; break; }
+  }
 
-  if (raw.length < MIN_QUESTION_CHARS || words.length < MIN_QUESTION_WORDS) return no('za-krótkie');
-  if (SMALL_TALK_PATTERNS.some((pattern) => pattern.test(folded))) return no('small-talk');
+  const asked = sentence.end === '?';
+  const lastWords = clauses.length > 1 ? words(clauses[clauses.length - 1].text).join(' ') : '';
+  const confirmation = asked && !opener && CONFIRMATION_TAGS.has(lastWords);
+  const phrase = hasAskPhrase(sentence.text);
 
   let confidence = 0;
   const reasons = [];
-  const clauses = splitClauses(raw);
-
-  if (raw.endsWith('?')) {
-    confidence += 0.6;
-    reasons.push('pytajnik');
+  if (asked) {
+    confidence += confirmation ? 0.25 : 0.6;
+    reasons.push(confirmation ? 'potwierdzenie' : 'pytajnik');
   }
-
-  // Fraza otwarta słowem pytającym — i to od niej zaczyna się właściwe pytanie.
-  const openerIndex = clauses.findIndex(opensQuestion);
-  if (openerIndex >= 0) {
-    confidence += openerIndex === 0 ? 0.35 : 0.45;
-    reasons.push(openerIndex === 0 ? 'słowo-pytające' : 'słowo-pytające-w-środku');
+  if (opener) {
+    // Kropka albo wykrzyknik od ASR to sygnał, że zdanie jest oznajmujące
+    // („A co dalej będzie, to nie wiadomo."), a wielokropek, że urwane.
+    // Pełną wagę słowo pytające ma tylko bez interpunkcji (napisy Meet)
+    // albo razem z pytajnikiem.
+    confidence += asked || sentence.end === '' ? 0.4 : 0.2;
+    reasons.push('słowo-pytające');
   }
-
-  // Jawny zwrot („mam pytanie", „quick question") jest jednoznaczny i musi
-  // wystarczyć sam — wcześniej dawał 0,3 przy progu 0,35 i przepadał.
-  const phraseHit = ASK_PHRASES.find((phrase) => folded.includes(phrase));
-  if (phraseHit) {
+  if (phrase) {
     confidence += 0.4;
     reasons.push('zwrot-pytający');
   }
-
-  confidence = Math.min(1, confidence);
-
-  // Do modelu wysyłamy właściwe pytanie — bez dygresji przed nim i bez tego,
-  // co padło po nim. Przy długiej, niepodzielonej wypowiedzi branie wszystkiego
-  // do końca wciągało do promptu odpowiedź na to samo pytanie, a prompt rósł
-  // do setek znaków i odpowiedź szła 9 s zamiast 1,5 s.
-  const question = openerIndex >= 0 ? extractQuestion(raw, openerIndex) : raw;
-
   return {
-    isQuestion: confidence >= 0.35,
-    confidence,
-    reason: reasons.join('+') || 'brak-sygnałów',
-    question,
+    confidence: Math.min(1, Math.round(confidence * 100) / 100),
+    reasons,
+    start: head >= 0 ? clauses[head].start : 0,
   };
 }
 
 /**
- * Wycina pytanie zaczynające się od frazy `openerIndex`.
+ * Czy wypowiedź zawiera pytanie wymagające odpowiedzi merytorycznej.
  *
- * Koniec wyznacza pytajnik. Gdy go nie ma (mowa często go nie daje), bierzemy
- * najwyżej `MAX_QUESTION_CLAUSES` fraz — dalej to już nie jest pytanie.
+ * Oceniamy każde zdanie osobno i bierzemy najlepsze. Do modelu idzie samo
+ * pytanie: od jego początku (bez wstępu i bez tego, co padło przed nim) do
+ * końca serii pytań, które po sobie następują („Rok? Dwa?").
+ * @returns {{isQuestion: boolean, confidence: number, reason: string, question: string}}
  */
-function extractQuestion(raw, openerIndex) {
-  const clauses = splitClausesWithEnd(raw);
-  if (!clauses.length) return raw;
+export function detectQuestion(text) {
+  const raw = stripHallucinations(text);
+  const folded = fold(raw);
+  const allWords = folded ? folded.split(' ') : [];
 
-  // Najpierw szukamy pytajnika w rozsądnym zasięgu. Pytanie z przecinkami
-  // („co się dzieje, gdy mija północ?") ma kilka fraz i ucięcie go po dwóch
-  // gubi właśnie tę część, o którą chodzi.
-  let end = -1;
-  for (let i = openerIndex; i < clauses.length && i < openerIndex + QUESTION_LOOKAHEAD; i++) {
-    if (clauses[i].endsQuestion) { end = i; break; }
+  const no = (reason) => ({ isQuestion: false, confidence: 0, reason, question: '' });
+
+  if (raw.length < MIN_QUESTION_CHARS || allWords.length < MIN_QUESTION_WORDS) return no('za-krótkie');
+  if (SMALL_TALK_PATTERNS.some((pattern) => pattern.test(folded))) return no('small-talk');
+
+  const sentences = splitSentences(raw);
+  const scored = sentences.map(scoreSentence);
+  let best = 0;
+  scored.forEach((s, i) => { if (s.confidence > scored[best].confidence) best = i; });
+  const top = scored[best];
+  if (!top || top.confidence < 0.35) {
+    return { isQuestion: false, confidence: top?.confidence ?? 0, reason: top?.reasons.join('+') || 'brak-sygnałów', question: '' };
   }
-  // Bez pytajnika bierzemy dwie frazy — dalej to już zwykle odpowiedź,
-  // która po pytaniu padła.
-  if (end < 0) end = Math.min(openerIndex + MAX_QUESTION_CLAUSES - 1, clauses.length - 1);
 
-  const joined = clauses.slice(openerIndex, end + 1).map((c) => c.text).join(', ');
-  return joined.length > MAX_QUESTION_CHARS ? `${joined.slice(0, MAX_QUESTION_CHARS - 1)}…` : joined;
+  // Seria pytań wokół najlepszego: „Czekaj, czyli swipe nie usuwa nawyku?
+  // To gdzie jest usuwanie?" - pierwsze daje drugiemu sens. Wstecz bierzemy
+  // też potwierdzenia („…, której nie ma w CV, tak? Czy ona gdzieś jest?"):
+  // same nie są pytaniem, ale bez nich „czy ona gdzieś jest" nic nie znaczy.
+  let from = best;
+  while (from > 0 && (scored[from - 1].confidence >= 0.35 || sentences[from - 1].end === '?')) from--;
+  let to = best;
+  while (to + 1 < sentences.length && sentences[to + 1].end === '?' && scored[to + 1].confidence >= 0.35) to++;
+
+  const render = (a, b) => sentences.slice(a, b + 1)
+    .map((s, i) => {
+      const body = i === 0 ? s.text.slice(scored[a].start).trim() : s.text;
+      return body + (s.end === '…' ? '…' : s.end);
+    })
+    .join(' ');
+  let question = render(from, to);
+  if (question.length > MAX_QUESTION_CHARS) question = render(best, best);
+  if (question.length > MAX_QUESTION_CHARS) question = `${question.slice(0, MAX_QUESTION_CHARS - 1)}…`;
+
+  return { isQuestion: true, confidence: top.confidence, reason: top.reasons.join('+'), question };
 }
 
 const DEFAULT_CONTEXT_SEGMENTS = 6;

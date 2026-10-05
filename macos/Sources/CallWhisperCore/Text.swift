@@ -120,7 +120,20 @@ public enum Text {
                 if square == 0 && round == 0 { out.append(ch) }
             }
         }
-        return normalize(out)
+        return stripHallucinations(out)
+    }
+
+    /// Typowe halucynacje whispera na ciszy i szumie („Dziękuję za uwagę.",
+    /// „Zdjękuje za oglądanie!"). W rozmowie padały co minutę, a doklejone do
+    /// pytania psuły prompt.
+    private static let hallucinations = try! NSRegularExpression(
+        pattern: #"(?:^|(?<=[\s.,!?]))(?:z?dzi[eę]kuj[eę]|zdj[eę]kuj[eę]|dzi[eę]ki)\s+(?:bardzo\s+)?za\s+(?:uwag[eę]|ogl[aą]danie|obejrzenie)[.!]*|napisy\s+(?:stworzone|wykonane)\s+przez[^.!?]*[.!?]?"#,
+        options: [.caseInsensitive])
+
+    /// Usuwa znane halucynacje whispera.
+    public static func stripHallucinations(_ text: String) -> String {
+        let range = NSRange(text.startIndex..., in: text)
+        return normalize(hallucinations.stringByReplacingMatches(in: text, range: range, withTemplate: " "))
     }
 
     /// Składa tekst do ASCII: małe litery, bez znaków diakrytycznych.

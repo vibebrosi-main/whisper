@@ -37,6 +37,12 @@ public final class Recorder: ObservableObject {
     private var sessionAudio: WavFileWriter?
     private var processingTask: Task<Void, Never>?
 
+    /// OBS nagrywający wideo do tej samej rozmowy; `nil` = bez OBS.
+    public var obs: OBSLink?
+    /// Sesja związana z nagraniem w OBS - przy stopie kończymy i jego.
+    private var obsSession = false
+    public var isOBSSession: Bool { obsSession }
+
     /// Co jeszcze trzeba załatwić, zanim cokolwiek zadziała.
     @Published public private(set) var readiness = Readiness(checks: [])
 
@@ -52,8 +58,13 @@ public final class Recorder: ObservableObject {
 
     // MARK: - cykl życia
 
-    public func start() async {
+    /// `origin` (ms epoki) to chwila, od której liczą się znaczniki czasu -
+    /// np. start nagrania w OBS, żeby 00:01:05 w transkrypcie znaczyło
+    /// 00:01:05 w filmie. Przygotowanie whispera trwa sekundy, a dźwięk z tego
+    /// okna przepada, ale czas pierwszej próbki i tak liczy się od `origin`.
+    public func start(origin: Double? = nil) async {
         guard !isRunning, !isProcessing else { return }
+        var origin = origin
         lastError = nil
         importedMeta = nil
         let backend = settings.asrBackend
@@ -68,7 +79,22 @@ public final class Recorder: ObservableObject {
             guard await prepareAppleSpeech() else { return }
         }
 
-        let now = nowMs()
+        // Nagranie w OBS włączamy dopiero po przygotowaniu silnika, żeby film
+        // i transkrypt zaczynały się możliwie razem. `origin` podany z zewnątrz
+        // znaczy, że OBS już nagrywa (start ręcznie w OBS).
+        obsSession = origin != nil
+        var obsNote: String?
+        if origin == nil, settings.followOBS, let obs {
+            status = "Włączam nagrywanie w OBS…"
+            do {
+                origin = try await obs.startRecording()
+                obsSession = true
+            } catch {
+                obsNote = error.localizedDescription
+            }
+        }
+
+        let now = origin ?? nowMs()
         store = TranscriptStore(startedAt: now)
         startedAt = now
         segments = []
@@ -141,6 +167,8 @@ public final class Recorder: ObservableObject {
         status = sources.count > 1
             ? "Słucham: system + mikrofon · \(engine)"
             : "Słucham: system · \(engine)"
+        if obsSession { status += " · OBS nagrywa" }
+        if let obsNote { lastError = obsNote }
         startTicker()
     }
 
@@ -238,7 +266,9 @@ public final class Recorder: ObservableObject {
         }
     }
 
-    public func stop() async {
+    /// `recordingPath` podaje OBS, gdy to on zakończył nagranie - wtedy nie
+    /// prosimy go o stop drugi raz.
+    public func stop(recordingPath: String? = nil) async {
         guard isRunning || !pipelines.isEmpty else { return }
 
         // Kolejność jest celowa: najpierw gasimy stan widoczny w interfejsie,
@@ -275,6 +305,16 @@ public final class Recorder: ObservableObject {
         publish()
         status = store.isEmpty ? "Gotowy" : "Zatrzymane"
 
+        var videoPath = recordingPath
+        if obsSession {
+            obsSession = false
+            if recordingPath == nil, let obs {
+                status = "Kończę nagranie w OBS…"
+                videoPath = await obs.stopRecording()
+                status = store.isEmpty ? "Gotowy" : "Zatrzymane"
+            }
+        }
+
         if let tape = sessionAudio {
             sessionAudio = nil
             tape.finish()
@@ -283,6 +323,25 @@ public final class Recorder: ObservableObject {
             } else {
                 diarizeSession(tape.url)
             }
+        }
+
+        if let videoPath, !store.isEmpty {
+            Task { [weak self] in
+                await self?.waitForProcessing()
+                self?.saveTranscript(nextTo: videoPath)
+            }
+        }
+    }
+
+    /// Transkrypt obok pliku wideo z OBS, z tą samą nazwą i czasami
+    /// względnymi - tylko te pokrywają się z osią filmu.
+    private func saveTranscript(nextTo videoPath: String) {
+        let url = OBS.transcriptURL(forRecording: videoPath)
+        do {
+            try renderMarkdown(absoluteTimestamps: false).write(to: url, atomically: true, encoding: .utf8)
+            status = "Zapisano obok nagrania: \(url.lastPathComponent)"
+        } catch {
+            lastError = "Nie udało się zapisać transkryptu obok nagrania: \(error.localizedDescription)"
         }
     }
 
@@ -382,6 +441,12 @@ public final class Recorder: ObservableObject {
             }
             await self.whisperServer.stop()
         }
+    }
+
+    /// Czeka, aż skończy się praca po rozmowie (diaryzacja), żeby zapisany
+    /// plik miał już ostateczne etykiety mówców.
+    public func waitForProcessing() async {
+        await processingTask?.value
     }
 
     public func cancelProcessing() {
@@ -593,10 +658,14 @@ public final class Recorder: ObservableObject {
 
     // MARK: - eksport
 
-    public var markdown: String {
+    public var markdown: String { renderMarkdown() }
+
+    /// `absoluteTimestamps` nadpisuje ustawienie - plik obok nagrania OBS
+    /// zawsze ma czasy względne, bo tylko te pokrywają się z osią filmu.
+    public func renderMarkdown(absoluteTimestamps: Bool? = nil) -> String {
         var opts = MarkdownOptions()
         opts.locale = settings.markdownLocale
-        opts.absoluteTimestamps = settings.absoluteTimestamps
+        opts.absoluteTimestamps = absoluteTimestamps ?? settings.absoluteTimestamps
         let meta = importedMeta ?? SessionMeta(
             title: settings.title,
             source: pipelines.count > 1 || micCapture != nil ? "mixed" : "system-audio",

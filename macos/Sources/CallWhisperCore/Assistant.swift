@@ -50,163 +50,251 @@ public struct QuestionVerdict: Sendable, Equatable {
 }
 
 public enum QuestionDetector {
-    /// Dzieli wypowiedź na frazy.
-    ///
-    /// W prawdziwej mowie pytanie prawie nigdy nie stoi na początku wypowiedzi:
-    /// „Wracając do migracji, mam pytanie, czym różni się RPO od RTO". Sprawdzanie
-    /// tylko pierwszego słowa całości gubiło takie przypadki — a to one dominują.
+    /// Dzieli wypowiedź na frazy po interpunkcji, którą daje ASR.
     public static func splitClauses(_ text: String) -> [String] {
-        splitClausesWithEnd(text).map(\.text)
-    }
-
-    public struct Clause: Sendable {
-        public var text: String
-        public var endsQuestion: Bool
-    }
-
-    /// Jak `splitClauses`, ale zachowuje informację, czy fraza kończyła się
-    /// pytajnikiem. Bez tego nie da się powiedzieć, GDZIE pytanie się kończy —
-    /// a branie wszystkiego do końca wypowiedzi wciągało do promptu odpowiedź,
-    /// która po nim padła.
-    public static func splitClausesWithEnd(_ text: String) -> [Clause] {
-        var out: [Clause] = []
+        var out: [String] = []
         var buffer = ""
         for ch in text {
             if ",.;!?".contains(ch) {
                 let trimmed = buffer.trimmingCharacters(in: .whitespaces)
-                if !trimmed.isEmpty { out.append(Clause(text: trimmed, endsQuestion: ch == "?")) }
+                if !trimmed.isEmpty { out.append(trimmed) }
                 buffer = ""
                 continue
             }
             buffer.append(ch)
         }
         let tail = buffer.trimmingCharacters(in: .whitespaces)
-        if !tail.isEmpty { out.append(Clause(text: tail, endsQuestion: false)) }
+        if !tail.isEmpty { out.append(tail) }
         return out
     }
 
-    /// Ile fraz doklejamy do pytania, gdy pytajnik nigdzie nie padł.
-    static let maxQuestionClauses = 2
     /// Twardy limit długości pytania. Prompt ma być krótki, nie kompletny.
     static let maxQuestionChars = 220
-    /// Jak daleko szukamy pytajnika, zanim uznamy, że go nie ma.
-    static let questionLookahead = 6
 
-    /// Wycina pytanie zaczynające się od frazy `openerIndex`.
-    ///
-    /// Koniec wyznacza pytajnik. Gdy go nie ma (mowa często go nie daje),
-    /// bierzemy najwyżej `maxQuestionClauses` fraz — dalej to już nie jest
-    /// pytanie, tylko odpowiedź na nie.
-    static func extractQuestion(_ raw: String, from openerIndex: Int) -> String {
-        let clauses = splitClausesWithEnd(raw)
-        guard !clauses.isEmpty, openerIndex < clauses.count else { return raw }
-
-        // Najpierw szukamy pytajnika w rozsądnym zasięgu. Pytanie z przecinkami
-        // („co się dzieje, gdy mija północ?") ma kilka fraz i ucięcie go po
-        // dwóch gubi właśnie tę część, o którą chodzi.
-        var end = -1
-        var i = openerIndex
-        while i < clauses.count && i < openerIndex + questionLookahead {
-            if clauses[i].endsQuestion { end = i; break }
-            i += 1
-        }
-        // Bez pytajnika bierzemy dwie frazy — dalej to już zwykle odpowiedź,
-        // która po pytaniu padła.
-        if end < 0 { end = Swift.min(openerIndex + maxQuestionClauses - 1, clauses.count - 1) }
-
-        let joined = clauses[openerIndex...end].map(\.text).joined(separator: ", ")
-        return joined.count > maxQuestionChars
-            ? String(joined.prefix(maxQuestionChars - 1)) + "…"
-            : joined
-    }
-
-    /// Słówka, które w mowie stoją PRZED właściwym słowem pytającym.
-    ///
-    /// „A jak to wpłynie na czas budowania" i „Od której wersji jest dostępny"
-    /// to najzwyklejszy polski szyk, a sprawdzanie wyłącznie pierwszego słowa
-    /// frazy gubiło oba — bo `jak` i `ktorej` stały na drugiej pozycji. Bez
-    /// pytajnika (a mowa go nie zawsze daje) takie pytanie przepadało bez śladu.
+    /// Słówka, które w mowie stoją PRZED właściwym słowem pytającym: „od której
+    /// wersji", „w czym piszesz". Dopuszczamy najwyżej jedno.
     static let leadingParticles: Set<String> = [
-        "a", "no", "i", "to", "wiec", "ale", "czyli", "oraz",
         "od", "do", "w", "na", "z", "za", "po", "przy", "dla", "o", "u",
     ]
 
-    /// Czy fraza zaczyna się od słowa pytającego, ewentualnie po jednym słówku.
-    static func opensQuestion(_ clause: String) -> Bool {
-        let all = Text.fold(clause).split(separator: " ").map(String.init)
-        guard let first = all.first else { return false }
+    /// Słowa wypełniające i wstępy, po których dopiero zaczyna się treść:
+    /// „Okej, dobra, a powiedz mi, jak długo programujesz?". Fraza złożona
+    /// wyłącznie z nich jest wstępem, a nie treścią.
+    static let fillerWords: Set<String> = [
+        "okej", "ok", "okay", "dobra", "dobrze", "no", "tak", "mhm", "hmm", "ehm", "eh", "yyy", "aha",
+        "fajnie", "super", "jasne", "swietnie", "sluchaj", "wiesz", "czekaj", "hej",
+        "a", "i", "to", "wiec", "ale", "czyli", "jeszcze", "jedno", "jakby", "teraz",
+        "powiedz", "powiedzcie", "mi", "nam", "mam", "pytanie", "pytanko", "w", "sensie", "znaczy",
+        "na", "przyklad", "generalnie", "ogolnie", "mozesz", "mozecie", "powiedziec",
+        "so", "well", "alright", "right", "tell", "me", "question",
+    ]
 
-        // Dopuszczamy najwyżej jedno słówko przed pytaniem — dwa to już zdanie,
-        // a nie wtrącenie, i zaczęłoby łapać zwykłe wypowiedzi.
+    /// Końcówki, które z oznajmienia robią prośbę o potwierdzenie: „…, tak?".
+    static let confirmationTags: Set<String> = ["tak", "nie", "prawda", "no nie", "nie prawda", "right", "yeah"]
+
+    public struct Sentence: Sendable, Equatable {
+        public var text: String
+        /// `?`, `.`, `!`, `…` (urwane) albo pusty (bez interpunkcji).
+        public var end: String
+    }
+
+    /// Dzieli wypowiedź na zdania, pamiętając, czym się kończyły.
+    ///
+    /// Kropka kończy zdanie tylko przed spacją albo na końcu: „Next.js" i „40 ml."
+    /// to nie są dwa zdania. Dwie kropki i więcej to wielokropek.
+    public static func splitSentences(_ text: String) -> [Sentence] {
+        var out: [Sentence] = []
+        let chars = Array(text)
+        var buffer = ""
+        func push(_ end: String) {
+            let trimmed = buffer.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty { out.append(Sentence(text: trimmed, end: end)) }
+            buffer = ""
+        }
+        var i = 0
+        while i < chars.count {
+            let ch = chars[i]
+            if ch == "?" || ch == "!" {
+                var end = String(ch)
+                while i + 1 < chars.count, chars[i + 1] == "?" || chars[i + 1] == "!" {
+                    if chars[i + 1] == "?" { end = "?" }
+                    i += 1
+                }
+                push(end)
+            } else if ch == "…" {
+                push("…")
+            } else if ch == "." {
+                var run = 1
+                while i + run < chars.count, chars[i + run] == "." { run += 1 }
+                if run >= 2 {
+                    i += run
+                    push("…")
+                    continue
+                }
+                if i + 1 == chars.count || chars[i + 1].isWhitespace { push(".") } else { buffer.append(ch) }
+            } else {
+                buffer.append(ch)
+            }
+            i += 1
+        }
+        push("")
+        return out
+    }
+
+    static func words(_ text: String) -> [String] {
+        Text.fold(text)
+            .split(whereSeparator: { !($0.isASCII && ($0.isLetter || $0.isNumber)) && $0 != "'" })
+            .map(String.init)
+    }
+
+    static func isFillerClause(_ clause: String) -> Bool {
+        words(clause).allSatisfy { fillerWords.contains($0) }
+    }
+
+    static func hasAskPhrase(_ text: String) -> Bool {
+        let folded = words(text).joined(separator: " ")
+        return askPhrases.contains { folded.contains($0) }
+    }
+
+    /// Czy fraza zaczyna się od słowa pytającego (po wypełniaczach i jednym przyimku).
+    static func opensQuestion(_ clause: String) -> Bool {
+        var all = words(clause)
+        while let first = all.first, fillerWords.contains(first), !allOpeners.contains(where: { $0[0] == first }) {
+            all.removeFirst()
+        }
+        guard let first = all.first else { return false }
         var starts = [all]
         if leadingParticles.contains(first) { starts.append(Array(all.dropFirst())) }
-
-        return starts.contains { words in
-            guard !words.isEmpty else { return false }
+        return starts.contains { ws in
+            guard !ws.isEmpty else { return false }
             return allOpeners.contains { parts in
-                guard parts.count <= words.count else { return false }
-                return parts.enumerated().allSatisfy { words[$0.offset] == $0.element }
+                parts.count <= ws.count && parts.enumerated().allSatisfy { ws[$0.offset] == $0.element }
             }
         }
     }
 
-    private static func matches(_ re: NSRegularExpression, _ s: String) -> Bool {
-        re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
+    struct Clause { var text: String; var start: Int }
+
+    /// Frazy zdania razem z miejscem (w znakach), w którym zaczynają się w tekście.
+    static func clauses(of sentence: String) -> [Clause] {
+        let chars = Array(sentence)
+        var out: [Clause] = []
+        var start = 0
+        for i in 0...chars.count {
+            if i == chars.count || chars[i] == "," || chars[i] == ";" {
+                let text = String(chars[start..<i]).trimmingCharacters(in: .whitespaces)
+                if !text.isEmpty { out.append(Clause(text: text, start: start)) }
+                start = i + 1
+            }
+        }
+        return out
     }
 
-    /// Czy wypowiedź wygląda na pytanie wymagające odpowiedzi merytorycznej.
+    struct Score { var confidence: Double; var reasons: [String]; var start: Int }
+
+    /// Ocena jednego zdania.
+    ///
+    /// Słowo pytające liczy się tylko na początku zdania: po wypełniaczach
+    /// („Okej, dobra, a jak…") albo po wstępie („mam pytanie, czym…",
+    /// „powiedz mi, ile…"). Po zwykłej frazie to prawie zawsze zaimek względny
+    /// albo spójnik: „Podobało mi się, jak zrobiłeś", „praca, która była".
+    static func score(_ sentence: Sentence) -> Score {
+        let parts = clauses(of: sentence.text)
+        let first = parts.firstIndex { !isFillerClause($0.text) } ?? -1
+        var head = first
+        var opener = false
+        var k = Swift.max(first, 0)
+        while k < parts.count {
+            let atStart = k == first
+            let afterLead = k > 0 && (isFillerClause(parts[k - 1].text) || hasAskPhrase(parts[k - 1].text))
+            if (atStart || afterLead) && opensQuestion(parts[k].text) {
+                opener = true
+                head = k
+                break
+            }
+            k += 1
+        }
+
+        let asked = sentence.end == "?"
+        let lastWords = parts.count > 1 ? words(parts[parts.count - 1].text).joined(separator: " ") : ""
+        let confirmation = asked && !opener && confirmationTags.contains(lastWords)
+        let phrase = hasAskPhrase(sentence.text)
+
+        var confidence = 0.0
+        var reasons: [String] = []
+        if asked {
+            confidence += confirmation ? 0.25 : 0.6
+            reasons.append(confirmation ? "potwierdzenie" : "pytajnik")
+        }
+        if opener {
+            // Kropka albo wykrzyknik od ASR to sygnał, że zdanie jest
+            // oznajmujące, a wielokropek, że urwane.
+            confidence += asked || sentence.end.isEmpty ? 0.4 : 0.2
+            reasons.append("słowo-pytające")
+        }
+        if phrase {
+            confidence += 0.4
+            reasons.append("zwrot-pytający")
+        }
+        return Score(confidence: Swift.min(1, (confidence * 100).rounded() / 100),
+                     reasons: reasons,
+                     start: head >= 0 ? parts[head].start : 0)
+    }
+
+    /// Czy wypowiedź zawiera pytanie wymagające odpowiedzi merytorycznej.
+    ///
+    /// Oceniamy każde zdanie osobno i bierzemy najlepsze. Do modelu idzie samo
+    /// pytanie: od jego początku (bez wstępu) do końca serii pytań po nim.
     public static func detect(_ text: String) -> QuestionVerdict {
-        let raw = Text.normalize(text)
+        let raw = Text.stripHallucinations(text)
         let folded = Text.fold(raw)
-        let words = folded.isEmpty ? [] : folded.split(separator: " ").map(String.init)
+        let allWords = folded.isEmpty ? [] : folded.split(separator: " ").map(String.init)
 
         func no(_ reason: String) -> QuestionVerdict {
             QuestionVerdict(isQuestion: false, confidence: 0, reason: reason, question: "")
         }
 
-        if raw.count < minQuestionChars || words.count < minQuestionWords { return no("za-krótkie") }
+        if raw.count < minQuestionChars || allWords.count < minQuestionWords { return no("za-krótkie") }
         if smallTalkPatterns.contains(where: { matches($0, folded) }) { return no("small-talk") }
 
-        var confidence = 0.0
-        var reasons: [String] = []
-        let clauses = splitClauses(raw)
-
-        if raw.hasSuffix("?") {
-            confidence += 0.6
-            reasons.append("pytajnik")
+        let sentences = splitSentences(raw)
+        let scored = sentences.map(score)
+        guard !scored.isEmpty else { return no("brak-sygnałów") }
+        var best = 0
+        for (i, s) in scored.enumerated() where s.confidence > scored[best].confidence { best = i }
+        let top = scored[best]
+        guard top.confidence >= 0.35 else {
+            return QuestionVerdict(isQuestion: false, confidence: top.confidence,
+                                   reason: top.reasons.isEmpty ? "brak-sygnałów" : top.reasons.joined(separator: "+"),
+                                   question: "")
         }
 
-        // Fraza otwarta słowem pytającym — i to od niej zaczyna się właściwe pytanie.
-        let openerIndex = clauses.firstIndex(where: opensQuestion)
-        if let idx = openerIndex {
-            confidence += idx == 0 ? 0.35 : 0.45
-            reasons.append(idx == 0 ? "słowo-pytające" : "słowo-pytające-w-środku")
+        // Seria pytań wokół najlepszego; wstecz także potwierdzenia, bo bez
+        // „…, której nie ma w CV, tak?" pytanie „czy ona gdzieś jest" nic nie znaczy.
+        var from = best
+        while from > 0 && (scored[from - 1].confidence >= 0.35 || sentences[from - 1].end == "?") { from -= 1 }
+        var to = best
+        while to + 1 < sentences.count && sentences[to + 1].end == "?" && scored[to + 1].confidence >= 0.35 { to += 1 }
+
+        func render(_ a: Int, _ b: Int) -> String {
+            (a...b).map { i -> String in
+                let s = sentences[i]
+                let body = i == a
+                    ? String(Array(s.text)[scored[a].start...]).trimmingCharacters(in: .whitespaces)
+                    : s.text
+                return body + s.end
+            }.joined(separator: " ")
         }
+        var question = render(from, to)
+        if question.count > maxQuestionChars { question = render(best, best) }
+        if question.count > maxQuestionChars { question = String(question.prefix(maxQuestionChars - 1)) + "…" }
 
-        // Jawny zwrot („mam pytanie", „quick question") jest jednoznaczny
-        // i musi wystarczyć sam.
-        if askPhrases.contains(where: { folded.contains($0) }) {
-            confidence += 0.4
-            reasons.append("zwrot-pytający")
-        }
+        return QuestionVerdict(isQuestion: true, confidence: top.confidence,
+                               reason: top.reasons.joined(separator: "+"), question: question)
+    }
 
-        confidence = Swift.min(1, confidence)
-
-        // Do modelu wysyłamy właściwe pytanie — bez dygresji przed nim i bez
-        // tego, co padło po nim. Przy długiej, niepodzielonej wypowiedzi branie
-        // wszystkiego do końca wciągało do promptu odpowiedź na to samo pytanie,
-        // prompt rósł do setek znaków, a odpowiedź szła 9 s zamiast 1,5 s.
-        let question: String = {
-            if let idx = openerIndex { return Self.extractQuestion(raw, from: idx) }
-            return raw
-        }()
-
-        return QuestionVerdict(
-            isQuestion: confidence >= 0.35,
-            confidence: confidence,
-            reason: reasons.isEmpty ? "brak-sygnałów" : reasons.joined(separator: "+"),
-            question: question
-        )
+    private static func matches(_ re: NSRegularExpression, _ s: String) -> Bool {
+        re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
     }
 }
 

@@ -16,6 +16,7 @@
     "whisper": "node asr/whisper.mjs",
     "mac": "cd macos && swift run call-whisper",
     "mac:build": "bash macos/tools/bundle.sh release",
+    "mac:icon": "swift macos/tools/make-icon.swift",
     "mac:test": "cd macos && swift test",
     "mac:fixtures": "node macos/tools/gen-fixtures.mjs",
     "mac:probe": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --probe",

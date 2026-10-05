@@ -33,6 +33,8 @@ if [ ! -x "$VENDOR/bin/whisper-server" ]; then
 fi
 mkdir -p "$APP/Contents/Resources/bin"
 cp "$VENDOR/bin/whisper-server" "$APP/Contents/Resources/bin/whisper-server"
+# Ikona: gotowy plik z repo (generuje go `npm run mac:icon`).
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 # Diaryzacja (~100 MB) celowo nie jedzie w paczce: jest opcjonalna
 # i aplikacja pobiera ją sama przy pierwszym użyciu.
 
@@ -45,6 +47,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>call-whisper</string>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>call-whisper</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.2.0</string>
   <key>CFBundleVersion</key><string>1</string>

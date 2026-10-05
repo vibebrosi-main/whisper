@@ -10,6 +10,7 @@ import CallWhisperCore
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     let recorder = Recorder()
     let meetings = MeetingWatcher()
+    let obs = OBSLink()
     private let settings = AppSettings.shared
     /// Nasłuch włączony przez wykrywanie — tylko taki wolno nam samym zatrzymać.
     private var autoStarted = false
@@ -31,6 +32,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         meetings.onChange = { [weak self] change in self?.handle(change) }
         syncMeetingDetection()
+        recorder.obs = obs
+        obs.onRecordStart = { [weak self] origin in self?.obsRecordingStarted(at: origin) }
+        obs.onRecordStop = { [weak self] path in self?.obsRecordingStopped(path: path) }
+        syncOBS()
+    }
+
+    func syncOBS() {
+        if settings.followOBS { obs.start() } else { obs.stop() }
+    }
+
+    /// Nagranie włączone ręcznie w OBS. Gdy to call-whisper je włączył,
+    /// `OBSLink` tego zdarzenia tu nie przekazuje.
+    private func obsRecordingStarted(at origin: Double) {
+        guard !recorder.isRunning, !recorder.isProcessing else {
+            notify("OBS nagrywa, ale call-whisper już słucha",
+                   body: "Czasy w transkrypcie nie pokryją się z filmem. Zatrzymaj nasłuch i zacznij nagranie od nowa.",
+                   action: false)
+            return
+        }
+        autoStarted = false
+        Task { await recorder.start(origin: origin) }
+    }
+
+    /// Nagranie zatrzymane w OBS kończy też nasłuch, a transkrypt ląduje
+    /// obok pliku wideo.
+    private func obsRecordingStopped(path: String?) {
+        guard recorder.isRunning, recorder.isOBSSession else { return }
+        Task { await recorder.stop(recordingPath: path) }
     }
 
     /// Plik upuszczony na ikonę w Docku albo otwarty z Findera
@@ -126,9 +155,10 @@ struct CallWhisperApp: App {
         }
 
         Settings {
-            SettingsView(settings: settings)
+            SettingsView(settings: settings, obs: delegate.obs)
                 .tint(M3.color.primary)
                 .onChange(of: settings.detectMeetings) { _, _ in delegate.syncMeetingDetection() }
+                .onChange(of: settings.followOBS) { _, _ in delegate.syncOBS() }
         }
     }
 }

@@ -156,6 +156,16 @@ public enum Markdown {
         return body.trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
     }
 
+    /// Wypowiedzi jako zwykły tekst do wklejenia w czat: jedna linia na
+    /// wypowiedź, z czasem i mówcą, bez nagłówków i tabel z eksportu.
+    public static func chatText(_ segments: [Segment]) -> String {
+        segments
+            .map { (segment: $0, text: Text.normalize($0.text)) }
+            .filter { !$0.text.isEmpty }
+            .map { "[\(TimeFormat.offset($0.segment.offsetMs))] \($0.segment.speaker): \($0.text)" }
+            .joined(separator: "\n")
+    }
+
     /// Krótki podgląd tekstowy (menu, powiadomienia).
     public static func preview(_ segments: [Segment], limit: Int = 6) -> String {
         segments.suffix(limit)
