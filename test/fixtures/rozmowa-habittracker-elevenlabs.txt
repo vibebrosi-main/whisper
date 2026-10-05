@@ -1,0 +1,50 @@
+Cześć, słychać mnie dobrze?
+<break time="1.2s" />
+
+Halo, halo.
+<break time="1.2s" />
+
+To zaczynajmy. Chciałbym dzisiaj przejść przez twój projekt HabitTracker, ten tracker nawyków na Androida. Widzę, że to przepisanie wcześniejszej wersji z Javy i XML-a na Kotlina z Compose. Powiedz mi najpierw ogólnie, jak jest zbudowana ta aplikacja.
+<break time="1.2s" />
+
+Dobrze. A jak dokładnie reprezentujecie wykonanie nawyku w bazie danych?
+<break time="1.2s" />
+
+Ciekawe. Wracając do bazy, mam pytanie, w której wersji jest teraz schemat i co dokładnie zmieniała migracja?
+<break time="1.2s" />
+
+Rozumiem. Ile wynosi domyślna godzina przypomnienia i w czym jest przechowywana?
+<break time="1.2s" />
+
+A jak działa częstotliwość dla konkretnych dni tygodnia?
+<break time="1.2s" />
+
+Teraz o interfejsie. Opowiedz, jakie gesty obsługuje kafelek nawyku na liście.
+<break time="1.2s" />
+
+Czekaj, czyli swipe nie usuwa nawyku? To gdzie jest usuwanie i czy jest potwierdzenie?
+<break time="1.2s" />
+
+Aha.
+<break time="1.2s" />
+
+Dobra, a teraz coś trudniejszego. Czy ktoś wie, co się dzieje ze statusem wykonania, gdy aplikacja stoi w tle przez całą noc i mija północ?
+<break time="1.2s" />
+
+Od której wersji Androida prosicie o uprawnienie do powiadomień?
+<break time="1.2s" />
+
+Co się dzieje z zaplanowanymi przypomnieniami po restarcie telefonu?
+<break time="1.2s" />
+
+Jeszcze jedno techniczne. Dlaczego użyliście KSP zamiast kapta do kompilatora Room?
+<break time="1.2s" />
+
+A jaki jest minimalny SDK i czemu akurat taki?
+<break time="1.2s" />
+
+Ostatnie pytanie. Ile testów jednostkowych ma ten projekt i jakie jest pokrycie kodu?
+<break time="1.2s" />
+
+Dzięki, to wszystko z mojej strony.
+<break time="1.2s" />

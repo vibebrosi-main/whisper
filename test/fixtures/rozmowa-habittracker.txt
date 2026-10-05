@@ -1,0 +1,33 @@
+Cześć, słychać mnie dobrze?
+
+Halo, halo.
+
+To zaczynajmy. Chciałbym dzisiaj przejść przez twój projekt HabitTracker, ten tracker nawyków na Androida. Widzę, że to przepisanie wcześniejszej wersji z Javy i XML-a na Kotlina z Compose. Powiedz mi najpierw ogólnie, jak jest zbudowana ta aplikacja.
+
+Dobrze. A jak dokładnie reprezentujecie wykonanie nawyku w bazie danych?
+
+Ciekawe. Wracając do bazy, mam pytanie, w której wersji jest teraz schemat i co dokładnie zmieniała migracja?
+
+Rozumiem. Ile wynosi domyślna godzina przypomnienia i w czym jest przechowywana?
+
+A jak działa częstotliwość dla konkretnych dni tygodnia?
+
+Teraz o interfejsie. Opowiedz, jakie gesty obsługuje kafelek nawyku na liście.
+
+Czekaj, czyli swipe nie usuwa nawyku? To gdzie jest usuwanie i czy jest potwierdzenie?
+
+Aha.
+
+Dobra, a teraz coś trudniejszego. Czy ktoś wie, co się dzieje ze statusem wykonania, gdy aplikacja stoi w tle przez całą noc i mija północ?
+
+Od której wersji Androida prosicie o uprawnienie do powiadomień?
+
+Co się dzieje z zaplanowanymi przypomnieniami po restarcie telefonu?
+
+Jeszcze jedno techniczne. Dlaczego użyliście KSP zamiast kapta do kompilatora Room?
+
+A jaki jest minimalny SDK i czemu akurat taki?
+
+Ostatnie pytanie. Ile testów jednostkowych ma ten projekt i jakie jest pokrycie kodu?
+
+Dzięki, to wszystko z mojej strony.

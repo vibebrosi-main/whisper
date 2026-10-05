@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <title>call-whisper</title>
+    <link rel="stylesheet" href="heroui.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="cw-header">
+      <div class="cw-brand">
+        <span class="cw-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2" />
+          </svg>
+        </span>
+        <span class="cw-brand__text">
+          <strong>call-whisper</strong>
+          <span class="hero-text-tiny hero-text-muted" id="source-label">Google Meet</span>
+        </span>
+      </div>
+      <span class="hero-chip hero-chip--dot" id="status-chip">łączę…</span>
+      <button
+        class="hero-button hero-button--light hero-button--sm hero-button--icon"
+        id="settings-toggle"
+        type="button"
+        title="Ustawienia"
+        aria-label="Ustawienia"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+    </header>
+
+    <main class="cw-main">
+      <!-- widok podstawowy -->
+      <section id="panel-live" class="cw-panel">
+        <div class="cw-segmented cw-segmented--full" id="mode-switch" role="tablist">
+          <button type="button" class="hero-button hero-button--sm hero-button--light" data-mode="meet">
+            Napisy Meet
+          </button>
+          <button type="button" class="hero-button hero-button--sm hero-button--light" data-mode="audio">
+            Rozpoznawanie głosu
+          </button>
+        </div>
+
+        <article class="hero-card">
+          <div class="hero-card__header cw-meeting">
+            <div class="cw-meeting__text">
+              <div class="hero-text-strong" id="meeting-title">—</div>
+              <div class="hero-text-tiny hero-text-muted" id="meeting-sub">—</div>
+            </div>
+          </div>
+          <hr class="hero-divider" />
+          <div class="hero-card__body cw-stats">
+            <div class="cw-stat"><b id="stat-duration">00:00:00</b><span>czas</span></div>
+            <div class="cw-stat"><b id="stat-segments">0</b><span>wypowiedzi</span></div>
+            <div class="cw-stat"><b id="stat-words">0</b><span>słów</span></div>
+            <div class="cw-stat"><b id="stat-speakers">0</b><span>osób</span></div>
+          </div>
+        </article>
+
+        <article class="hero-card hero-card--flat cw-alert" id="alert" hidden>
+          <div class="hero-card__body">
+            <div class="cw-alert__row">
+              <span class="hero-chip hero-chip--warning hero-chip--dot" id="alert-tag">uwaga</span>
+              <span class="hero-text-tiny" id="alert-text"></span>
+            </div>
+            <button class="hero-button hero-button--flat hero-button--warning hero-button--sm" id="alert-action" type="button" hidden></button>
+          </div>
+        </article>
+
+        <div class="cw-speakers" id="speakers"></div>
+
+        <div class="cw-transcript hero-scroll" id="transcript">
+          <p class="cw-empty hero-text-tiny hero-text-muted">Czekam na pierwsze wypowiedzi…</p>
+        </div>
+      </section>
+
+      <!-- ustawienia -->
+      <section id="panel-settings" class="cw-panel" hidden>
+        <article class="hero-card">
+          <div class="hero-card__body">
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="autoStart" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Auto-start</span>
+                <span class="hero-switch__description">Nagrywaj od razu po wejściu na rozmowę</span>
+              </span>
+            </label>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="autoEnableCaptions" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Włączaj napisy</span>
+                <span class="hero-switch__description">Bez napisów Meet nie ma czego transkrybować</span>
+              </span>
+            </label>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="autoSaveOnEnd" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Auto-zapis</span>
+                <span class="hero-switch__description">Pobierz .md po zamknięciu rozmowy</span>
+              </span>
+            </label>
+          </div>
+        </article>
+
+        <article class="hero-card">
+          <div class="hero-card__body">
+            <span class="hero-text-tiny hero-text-muted">Format Markdown</span>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="absoluteTimestamps" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Godzina zegarowa</span>
+                <span class="hero-switch__description">Zamiast offsetu od startu rozmowy</span>
+              </span>
+            </label>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="frontmatter" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Frontmatter YAML</span>
+                <span class="hero-switch__description">Metadane dla Obsidian / Logseq</span>
+              </span>
+            </label>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="stats" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Tabela uczestników</span>
+                <span class="hero-switch__description">Podział wypowiedzi na osoby</span>
+              </span>
+            </label>
+            <div class="cw-locale">
+              <span class="hero-switch__label">Język nagłówków</span>
+              <div class="cw-segmented" id="locale-switch">
+                <button type="button" class="hero-button hero-button--sm hero-button--light" data-locale="pl">PL</button>
+                <button type="button" class="hero-button hero-button--sm hero-button--light" data-locale="en">EN</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="hero-card">
+          <div class="hero-card__body">
+            <span class="hero-text-tiny hero-text-muted">Rozpoznawanie głosu</span>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="captureMic" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Nagrywaj mikrofon</span>
+                <span class="hero-switch__description">Twoja strona rozmowy i osoby obok Ciebie</span>
+              </span>
+            </label>
+            <div class="cw-locale">
+              <span class="hero-switch__label">Silnik</span>
+              <select class="hero-select" id="speech-backend">
+                <option value="whisper-local">whisper.cpp lokalnie — najszybszy</option>
+                <option value="webspeech">Chrome, lokalnie</option>
+                <option value="groq">Groq Whisper</option>
+              </select>
+            </div>
+
+            <div id="whisper-fields" class="cw-groq" hidden>
+              <label class="cw-field">
+                <span class="hero-switch__label">Adres whisper.cpp</span>
+                <input class="hero-input" id="whisper-url" type="text" spellcheck="false" placeholder="http://127.0.0.1:8899" />
+                <span class="hero-switch__description">
+                  Uruchom lokalnie: <code>npm run whisper</code>. Nic nie wychodzi z urządzenia.
+                </span>
+              </label>
+              <div class="cw-locale">
+                <span class="hero-switch__label" id="whisper-status">serwer: nie sprawdzono</span>
+                <button class="hero-button hero-button--bordered hero-button--sm" id="whisper-check" type="button">
+                  Sprawdź
+                </button>
+              </div>
+            </div>
+
+            <div id="groq-fields" class="cw-groq" hidden>
+              <label class="cw-field">
+                <span class="hero-switch__label">Klucz API Groq</span>
+                <input
+                  class="hero-input"
+                  id="groq-key"
+                  type="password"
+                  placeholder="gsk_…"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <span class="hero-switch__description">
+                  Z <code>console.groq.com/keys</code>. Trzymany lokalnie w pamięci rozszerzenia.
+                  Audio wypowiedzi jest wysyłane do Groqa.
+                </span>
+              </label>
+              <div class="cw-locale">
+                <span class="hero-switch__label">Model</span>
+                <select class="hero-select" id="groq-model">
+                  <option value="whisper-large-v3-turbo">large-v3-turbo — tańszy</option>
+                  <option value="whisper-large-v3">large-v3 — dokładniejszy</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="cw-locale">
+              <span class="hero-switch__label">Język mowy</span>
+              <select class="hero-select" id="audio-lang" data-setting="audioLang">
+                <option value="pl-PL">polski</option>
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="de-DE">Deutsch</option>
+                <option value="es-ES">Español</option>
+                <option value="fr-FR">Français</option>
+                <option value="it-IT">Italiano</option>
+                <option value="uk-UA">українська</option>
+              </select>
+            </div>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="allowCloudSpeech" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Zezwól na chmurę Google</span>
+                <span class="hero-switch__description">
+                  Gdy brak modelu lokalnego. Audio opuszcza wtedy urządzenie.
+                </span>
+              </span>
+            </label>
+            <button class="hero-button hero-button--bordered hero-button--sm" id="mic-permission" type="button">
+              Nadaj dostęp do mikrofonu
+            </button>
+            <button class="hero-button hero-button--bordered hero-button--sm" id="captions-settings" type="button">
+              Pobierz model mowy (Napisy na żywo)
+            </button>
+          </div>
+        </article>
+
+        <article class="hero-card">
+          <div class="hero-card__body">
+            <span class="hero-text-tiny hero-text-muted">Asystent Claude</span>
+            <label class="hero-switch">
+              <input type="checkbox" data-setting="assistantEnabled" />
+              <span class="hero-switch__track"><span class="hero-switch__thumb"></span></span>
+              <span class="hero-switch__content">
+                <span class="hero-switch__label">Podpowiadaj w rozmowie</span>
+                <span class="hero-switch__description">
+                  Wykrywa pytania w transkrypcji i odpowiada w nakładce na stronie
+                </span>
+              </span>
+            </label>
+            <label class="cw-field">
+              <span class="hero-switch__label">Adres mostu</span>
+              <input class="hero-input" id="bridge-url" type="text" spellcheck="false" placeholder="http://127.0.0.1:8787" />
+              <span class="hero-switch__description">
+                Uruchom lokalnie: <code>npm run assistant</code>
+              </span>
+            </label>
+            <div class="cw-locale">
+              <span class="hero-switch__label" id="bridge-status">most: nie sprawdzono</span>
+              <button class="hero-button hero-button--bordered hero-button--sm" id="bridge-check" type="button">
+                Sprawdź
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <p class="hero-text-tiny hero-text-muted cw-note" id="privacy-note"></p>
+      </section>
+    </main>
+
+    <footer class="cw-footer">
+      <button class="hero-button hero-button--primary hero-button--full" id="toggle-capture" type="button">
+        Start
+      </button>
+      <div class="cw-footer__row">
+        <button class="hero-button hero-button--flat hero-button--sm" id="copy-md" type="button">Kopiuj MD</button>
+        <button class="hero-button hero-button--flat hero-button--primary hero-button--sm" id="save-md" type="button">
+          Pobierz .md
+        </button>
+        <button class="hero-button hero-button--light hero-button--sm" id="save-json" type="button" title="Eksport surowych danych">
+          .json
+        </button>
+      </div>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

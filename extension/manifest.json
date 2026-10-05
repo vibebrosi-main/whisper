@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "call-whisper",
+  "version": "0.1.0",
+  "description": "Transkrypcja rozmów w czasie rzeczywistym do Markdownu z timestampami per osoba. Napisy Google Meet albo rozpoznawanie po głosie — wszystko lokalnie.",
+  "minimum_chrome_version": "133",
+  "permissions": [
+    "storage",
+    "downloads",
+    "tabCapture",
+    "offscreen",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://meet.google.com/*",
+    "https://api.groq.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "call-whisper",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://meet.google.com/*"
+      ],
+      "js": [
+        "content/boot.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/main.js",
+        "src/*",
+        "src/core/*",
+        "src/adapters/*",
+        "src/adapters/meet/*",
+        "content/overlay.js",
+        "content/overlay.css",
+        "src/adapters/assistant/*"
+      ],
+      "matches": [
+        "https://meet.google.com/*"
+      ]
+    }
+  ]
+}

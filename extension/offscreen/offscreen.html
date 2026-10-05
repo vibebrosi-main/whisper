@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <title>call-whisper — przechwytywanie audio</title>
+  </head>
+  <body>
+    <!--
+      Dokument offscreen. Niewidoczny, ale ma DOM — w MV3 to jedyny kontekst,
+      w którym da się trzymać żywy MediaStream i AudioContext, bo service
+      worker nie ma dostępu do Web Audio ani getUserMedia.
+    -->
+    <script type="module" src="offscreen.js"></script>
+  </body>
+</html>

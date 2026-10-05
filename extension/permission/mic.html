@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <title>call-whisper — dostęp do mikrofonu</title>
+    <link rel="stylesheet" href="../popup/heroui.css" />
+    <link rel="stylesheet" href="mic.css" />
+  </head>
+  <body>
+    <main class="mic-card hero-card">
+      <div class="hero-card__body">
+        <h1>Dostęp do mikrofonu</h1>
+        <p class="hero-text-muted">
+          call-whisper potrzebuje mikrofonu, żeby transkrybować także Twoją stronę rozmowy oraz
+          osoby siedzące obok Ciebie w tym samym pokoju. Audio jest przetwarzane lokalnie i
+          nigdzie nie wychodzi.
+        </p>
+        <p class="hero-text-tiny hero-text-muted">
+          Zgody nie da się nadać z niewidocznego tła — dlatego ta strona otwiera się raz.
+        </p>
+        <div class="mic-actions">
+          <button class="hero-button hero-button--primary" id="grant" type="button">
+            Zezwól na mikrofon
+          </button>
+          <span class="hero-chip" id="status">czekam</span>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="mic.js"></script>
+  </body>
+</html>

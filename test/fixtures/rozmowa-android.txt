@@ -1,0 +1,35 @@
+Cześć wszystkim. Słychać mnie dobrze?
+
+Halo, halo.
+
+To zaczynajmy. Dzisiaj chciałem omówić migrację naszego modułu płatności z widoków XML na Jetpack Compose. Przepisaliśmy już ekran koszyka i ekran podsumowania zamówienia. Zostały nam dwa ekrany formularza i lista transakcji, która jest najbardziej złożona, bo ma paginację, filtrowanie i pull to refresh.
+
+Jaka jest różnica między StateFlow a SharedFlow?
+
+StateFlow zawsze trzyma aktualną wartość i emituje ją nowym subskrybentom natychmiast. SharedFlow nie ma wartości początkowej i można mu skonfigurować bufor replay. W praktyce StateFlow do stanu ekranu, SharedFlow do zdarzeń jednorazowych, takich jak nawigacja albo pokazanie snackbara.
+
+Wracając do tej listy transakcji, mam pytanie, czy LazyColumn recyklinguje elementy tak samo jak RecyclerView?
+
+Nie do końca tak samo, ale efekt jest podobny. LazyColumn tworzy kompozycje tylko dla widocznych elementów i porzuca te, które wyjechały poza ekran. Nie ma tam puli widoków do ponownego użycia, bo Compose nie ma widoków w tym sensie.
+
+Ile wynosi domyślny rozmiar puli wątków w Dispatchers punkt IO?
+
+Domyślnie sześćdziesiąt cztery wątki, albo tyle, ile jest rdzeni procesora, jeżeli rdzeni jest więcej. To jest limit współdzielony z Dispatchers punkt Default.
+
+Dobra. Teraz o wydajności. Zmierzyliśmy czas startu aplikacji na urządzeniu testowym i wychodzi nam osiemset milisekund do pierwszej klatki na Pixelu siódmym, a na budżetowym Samsungu z Androidem trzynaście prawie dwie i pół sekundy. Dodaliśmy Baseline Profile i to zbiło czas na tym słabszym urządzeniu do tysiąca sześciuset milisekund. Reszta narzutu siedzi w inicjalizacji Hilta i w migracjach bazy Room, które odpalamy synchronicznie na starcie, co jest błędem i trzeba to przenieść w tło.
+
+Czy ktoś wie, jak dokładnie działa remember w Compose?
+
+Remember zapamiętuje wartość w slocie kompozycji i zwraca ją przy kolejnych rekompozycjach, dopóki klucze się nie zmienią. Przy zmianie konfiguracji to nie wystarczy, wtedy potrzebny jest rememberSaveable, który zapisuje stan do Bundle.
+
+Od której wersji API dostępny jest Predictive Back?
+
+Aha.
+
+Jeszcze jedno. Czy migrujemy od razu na Kotlin Multiplatform, czy zostajemy przy czystym Androidzie?
+
+A jak to wpłynie na czas budowania w Gradle?
+
+I ostatnie pytanie, co robimy z ProGuardem i R8, bo mamy tam ręcznie pisane reguły, których nikt już nie rozumie?
+
+To tyle na dzisiaj. Dzięki i do zobaczenia jutro.

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <title>call-whisper — podgląd nakładki asystenta</title>
+    <style>
+      body { margin: 0; min-height: 100vh; background: #0b0b0d; color: #a1a1aa;
+             font-family: system-ui, sans-serif; padding: 3rem; }
+      h1 { color: #e4e4e7; font-size: 1.1rem; }
+      p { max-width: 40rem; line-height: 1.6; font-size: .9rem; }
+      button { font: inherit; font-size: .8rem; padding: .5rem .8rem; margin-right: .4rem;
+               border: none; border-radius: 8px; background: #27272a; color: #e4e4e7; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h1>Podgląd nakładki asystenta</h1>
+    <p>Tło udaje stronę rozmowy. Nakładka renderuje się w Shadow DOM, więc style
+       tej strony jej nie dotykają — i odwrotnie.</p>
+    <p>Pytanie można też wpisać albo wkleić wprost w nakładce: Enter wysyła,
+       Shift+Enter łamie wiersz.</p>
+    <button id="q1">Pytanie + odpowiedź strumieniem</button>
+    <button id="q2">Drugie pytanie</button>
+    <button id="err">Most nie odpowiada</button>
+    <script type="module" src="overlay.js"></script>
+  </body>
+</html>

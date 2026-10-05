@@ -1,0 +1,53 @@
+Cześć wszystkim. Słychać mnie dobrze?
+<break time="1.2s" />
+
+Halo, halo.
+<break time="1.2s" />
+
+To zaczynajmy. Dzisiaj chciałem omówić migrację naszego modułu płatności z widoków XML na Jetpack Compose. Przepisaliśmy już ekran koszyka i ekran podsumowania zamówienia. Zostały nam dwa ekrany formularza i lista transakcji, która jest najbardziej złożona, bo ma paginację, filtrowanie i pull to refresh.
+<break time="1.2s" />
+
+Jaka jest różnica między StateFlow a SharedFlow?
+<break time="1.2s" />
+
+StateFlow zawsze trzyma aktualną wartość i emituje ją nowym subskrybentom natychmiast. SharedFlow nie ma wartości początkowej i można mu skonfigurować bufor replay. W praktyce StateFlow do stanu ekranu, SharedFlow do zdarzeń jednorazowych, takich jak nawigacja albo pokazanie snackbara.
+<break time="1.2s" />
+
+Wracając do tej listy transakcji, mam pytanie, czy LazyColumn recyklinguje elementy tak samo jak RecyclerView?
+<break time="1.2s" />
+
+Nie do końca tak samo, ale efekt jest podobny. LazyColumn tworzy kompozycje tylko dla widocznych elementów i porzuca te, które wyjechały poza ekran. Nie ma tam puli widoków do ponownego użycia, bo Compose nie ma widoków w tym sensie.
+<break time="1.2s" />
+
+Ile wynosi domyślny rozmiar puli wątków w Dispatchers punkt IO?
+<break time="1.2s" />
+
+Domyślnie sześćdziesiąt cztery wątki, albo tyle, ile jest rdzeni procesora, jeżeli rdzeni jest więcej. To jest limit współdzielony z Dispatchers punkt Default.
+<break time="1.2s" />
+
+Dobra. Teraz o wydajności. Zmierzyliśmy czas startu aplikacji na urządzeniu testowym i wychodzi nam osiemset milisekund do pierwszej klatki na Pixelu siódmym, a na budżetowym Samsungu z Androidem trzynaście prawie dwie i pół sekundy. Dodaliśmy Baseline Profile i to zbiło czas na tym słabszym urządzeniu do tysiąca sześciuset milisekund. Reszta narzutu siedzi w inicjalizacji Hilta i w migracjach bazy Room, które odpalamy synchronicznie na starcie, co jest błędem i trzeba to przenieść w tło.
+<break time="1.2s" />
+
+Czy ktoś wie, jak dokładnie działa remember w Compose?
+<break time="1.2s" />
+
+Remember zapamiętuje wartość w slocie kompozycji i zwraca ją przy kolejnych rekompozycjach, dopóki klucze się nie zmienią. Przy zmianie konfiguracji to nie wystarczy, wtedy potrzebny jest rememberSaveable, który zapisuje stan do Bundle.
+<break time="1.2s" />
+
+Od której wersji API dostępny jest Predictive Back?
+<break time="1.2s" />
+
+Aha.
+<break time="1.2s" />
+
+Jeszcze jedno. Czy migrujemy od razu na Kotlin Multiplatform, czy zostajemy przy czystym Androidzie?
+<break time="1.2s" />
+
+A jak to wpłynie na czas budowania w Gradle?
+<break time="1.2s" />
+
+I ostatnie pytanie, co robimy z ProGuardem i R8, bo mamy tam ręcznie pisane reguły, których nikt już nie rozumie?
+<break time="1.2s" />
+
+To tyle na dzisiaj. Dzięki i do zobaczenia jutro.
+<break time="1.2s" />

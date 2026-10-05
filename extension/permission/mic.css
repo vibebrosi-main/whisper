@@ -1,0 +1,29 @@
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.mic-card {
+  max-width: 30rem;
+}
+
+.mic-card h1 {
+  margin: 0;
+  font-size: var(--hero-font-large);
+  line-height: var(--hero-line-large);
+}
+
+.mic-card p {
+  margin: 0;
+  font-size: var(--hero-font-small);
+  line-height: var(--hero-line-small);
+}
+
+.mic-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}

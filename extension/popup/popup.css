@@ -1,0 +1,372 @@
+/* Layout popupu. Kolory i komponenty pochodzą z heroui.css. */
+
+body {
+  width: 380px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- header ---------- */
+.cw-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border-bottom: var(--hero-divider-weight) solid rgb(var(--hero-divider) / var(--hero-divider-opacity));
+}
+
+.cw-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.cw-mark {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: var(--hero-radius-medium);
+  background: rgb(var(--hero-primary-rgb) / 0.2);
+  color: var(--hero-primary-strong);
+}
+
+.cw-mark svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cw-brand__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.cw-brand__text strong {
+  font-size: var(--hero-font-small);
+}
+
+/* ---------- main ---------- */
+.cw-main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.cw-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* Kurczy się tylko transkrypt — karty zachowują swoją wysokość. */
+.cw-panel > *:not(.cw-transcript) {
+  flex: none;
+}
+
+.hero-switch {
+  align-items: flex-start;
+}
+
+.hero-switch__track {
+  margin-top: 0.125rem;
+}
+
+/* ---------- karta spotkania ---------- */
+.cw-meeting__text {
+  min-width: 0;
+}
+
+.cw-meeting__text > div:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cw-stats {
+  flex-direction: row !important;
+  justify-content: space-between;
+  gap: 0.25rem !important;
+}
+
+.cw-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  flex: 1;
+}
+
+.cw-stat b {
+  font-size: var(--hero-font-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-stat span {
+  font-size: 0.6875rem;
+  line-height: 1;
+  color: var(--hero-default-500);
+}
+
+/* ---------- alert ---------- */
+.cw-alert__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.cw-alert__row .hero-chip {
+  flex: none;
+}
+
+/* ---------- lista mówców ---------- */
+.cw-speakers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.cw-speakers:empty {
+  display: none;
+}
+
+.cw-speaker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: 9999px;
+  background: var(--hero-default-100);
+  color: var(--hero-default-700);
+  font-size: var(--hero-font-tiny);
+  max-width: 100%;
+}
+
+.cw-speaker__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex: none;
+}
+
+.cw-speaker__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cw-speaker__count {
+  color: var(--hero-default-500);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- transkrypt ---------- */
+.cw-transcript {
+  /* Cień tylko u góry: najnowsza wypowiedź na dole musi być w pełni czytelna. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 100%);
+  flex: 1;
+  min-height: 8rem;
+  max-height: 15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.25rem 0;
+}
+
+.cw-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.cw-line__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--hero-font-tiny);
+  line-height: var(--hero-line-tiny);
+}
+
+.cw-line__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex: none;
+}
+
+.cw-line__speaker {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cw-line__time {
+  margin-left: auto;
+  color: var(--hero-default-400);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.cw-line__text {
+  font-size: var(--hero-font-small);
+  line-height: var(--hero-line-small);
+  color: var(--hero-default-700);
+  word-break: break-word;
+}
+
+.cw-line--live .cw-line__text::after {
+  content: '▍';
+  color: var(--hero-primary);
+  animation: cw-blink 1s steps(2, start) infinite;
+  margin-left: 1px;
+}
+
+@keyframes cw-blink {
+  to {
+    opacity: 0;
+  }
+}
+
+.cw-empty {
+  margin: 0;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+/* ---------- ustawienia ---------- */
+.cw-panel .hero-card__body {
+  gap: 0.875rem;
+}
+
+.cw-locale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cw-segmented {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border-radius: var(--hero-radius-medium);
+  background: var(--hero-default-100);
+}
+
+.cw-segmented .hero-button {
+  min-width: 2.5rem;
+  height: 1.75rem;
+}
+
+.cw-segmented .hero-button[aria-pressed='true'] {
+  background: var(--hero-content1);
+  color: var(--hero-foreground);
+  box-shadow: var(--hero-shadow-small);
+}
+
+.cw-note {
+  margin: 0;
+  padding: 0 0.25rem;
+}
+
+/* ---------- footer ---------- */
+.cw-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border-top: var(--hero-divider-weight) solid rgb(var(--hero-divider) / var(--hero-divider-opacity));
+  background: var(--hero-background);
+}
+
+.cw-footer__row {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.cw-footer__row .hero-button {
+  flex: 1;
+  min-width: 0;
+}
+
+.cw-footer__row .hero-button:last-child {
+  flex: 0 0 3.25rem;
+}
+
+/* ---------- przełącznik trybu ---------- */
+.cw-segmented--full {
+  display: flex;
+  width: 100%;
+}
+
+.cw-segmented--full .hero-button {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- select w stylu HeroUI ---------- */
+.hero-select {
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: none;
+  border-radius: var(--hero-radius-small);
+  background: var(--hero-default-100);
+  color: var(--hero-foreground);
+  font: inherit;
+  font-size: var(--hero-font-tiny);
+  cursor: pointer;
+}
+
+/* ---------- lista ostrzeżeń trybu audio ---------- */
+.cw-alert__row + .cw-alert__row {
+  margin-top: 0.375rem;
+}
+
+/* ---------- pola tekstowe w stylu HeroUI ---------- */
+.hero-input {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: var(--hero-radius-medium);
+  background: var(--hero-default-100);
+  color: var(--hero-foreground);
+  font: inherit;
+  font-size: var(--hero-font-small);
+}
+
+.hero-input::placeholder {
+  color: var(--hero-default-400);
+}
+
+.cw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.cw-groq {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--hero-radius-medium);
+  background: var(--hero-default-50);
+}
+
+.cw-groq code {
+  font-size: 0.6875rem;
+}

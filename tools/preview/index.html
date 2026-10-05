@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <title>call-whisper — podgląd popupu</title>
+    <link rel="stylesheet" href="/extension/popup/heroui.css" />
+    <link rel="stylesheet" href="/extension/popup/popup.css" />
+    <link rel="stylesheet" href="preview.css" />
+  </head>
+  <body class="preview-body">
+    <div class="preview-bar">
+      <strong>call-whisper — podgląd popupu</strong>
+      <span class="preview-hint">harness deweloperski: prawdziwy popup.js na atrapie API Chrome</span>
+      <div class="preview-controls">
+        <button type="button" data-theme-set="light">Light</button>
+        <button type="button" data-theme-set="dark">Dark</button>
+        <button type="button" data-scenario="live">Nagrywanie</button>
+        <button type="button" data-scenario="captions-off">Napisy off</button>
+        <button type="button" data-scenario="idle">Poza rozmową</button>
+        <button type="button" data-scenario="audio">Tryb głosu</button>
+        <button type="button" data-scenario="settings">Ustawienia</button>
+      </div>
+    </div>
+
+    <div class="preview-stage">
+      <div class="preview-frame" id="frame"></div>
+    </div>
+
+    <script type="module" src="preview.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "call-whisper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Transkrypcja rozmów w czasie rzeczywistym do Markdownu z timestampami per osoba. Aplikacja natywna macOS + rozszerzenie Chrome.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "icons": "node tools/make-icons.mjs",
+    "render": "node tools/render.mjs",
+    "transcribe": "node tools/transcribe.mjs",
+    "assistant": "node assistant/server.mjs",
+    "whisper": "node asr/whisper.mjs",
+    "mac": "cd macos && swift run call-whisper",
+    "mac:build": "bash macos/tools/bundle.sh release",
+    "mac:test": "cd macos && swift test",
+    "mac:fixtures": "node macos/tools/gen-fixtures.mjs",
+    "mac:probe": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --probe",
+    "mac:listen": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --listen",
+    "mac:whisper": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --whisper",
+    "mac:ask": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --ask",
+    "mac:fetch-model": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --fetch-model",
+    "mac:ask-image": "macos/build/call-whisper.app/Contents/MacOS/call-whisper --ask-image"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

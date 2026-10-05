@@ -1,0 +1,16 @@
+node_modules/
+*.log
+.DS_Store
+/out/
+*.local.json
+
+# sekrety — klucze API nigdy do repo
+.env
+.env.*
+!.env.example
+
+# Swift / macOS
+macos/.build/
+macos/build/
+macos/vendor/
+*.xcodeproj
