@@ -113,7 +113,8 @@ public final class Recorder: ObservableObject {
                 let pipeline = SourcePipeline(source: source, backend: backend,
                                               whisperPort: settings.whisperPort,
                                               languageCode: settings.languageCode,
-                                              identifySpeakers: settings.identifySpeakers)
+                                              identifySpeakers: settings.identifySpeakers,
+                                              vocabulary: settings.whisperVocabulary)
                 pipelines[source] = pipeline
                 try await pipeline.start(locale: settings.locale, onUpdate: { [weak self] update in
                     Task { @MainActor in self?.apply(update) }
@@ -576,7 +577,9 @@ public final class Recorder: ObservableObject {
                                        projectContext: settings.projectContext) else { return }
 
         let backend = settings.assistantBackend
-        let key = settings.apiKey
+        // Klucz czytamy tylko dla API. Wcześniej czytany przy każdym pytaniu,
+        // także przez Claude Code, wywoływał w środku rozmowy monit o hasło.
+        let key = backend == .api ? settings.apiKey : ""
         if backend == .api && key.isEmpty {
             lastError = AssistantError.noKey.localizedDescription
             return

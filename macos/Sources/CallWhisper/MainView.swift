@@ -197,7 +197,11 @@ struct MainView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            listenFAB.padding(20)
+            VStack(alignment: .trailing, spacing: 10) {
+                if !recorder.isRunning { captureModePicker }
+                listenFAB
+            }
+            .padding(20)
         }
         .overlay(alignment: .top) {
             if !selection.isEmpty { selectionBar.padding(12) }
@@ -256,6 +260,28 @@ struct MainView: View {
 
     /// Główna akcja ekranu jako rozszerzony FAB M3. W trakcie nasłuchu zmienia
     /// się w „Zatrzymaj" na kontenerze error, żeby nie dało się pomylić stanów.
+    /// Co nagrywa „Słuchaj": sam dźwięk do transkryptu albo do tego wideo
+    /// w OBS. Pod ręką, a nie w Ustawieniach, bo to wybór na konkretną rozmowę.
+    private var captureModePicker: some View {
+        HStack(spacing: 6) {
+            ForEach([false, true], id: \.self) { withOBS in
+                Button {
+                    settings.followOBS = withOBS
+                } label: {
+                    M3Chip(text: withOBS ? "Dźwięk + OBS" : "Sam dźwięk",
+                           systemImage: withOBS ? "video.fill" : "waveform",
+                           selected: settings.followOBS == withOBS)
+                }
+                .buttonStyle(.plain)
+                .help(withOBS
+                      ? "„Słuchaj” uruchamia też nagrywanie wideo w OBS; transkrypt ląduje obok filmu"
+                      : "Tylko transkrypcja dźwięku, bez OBS")
+            }
+        }
+        .padding(4)
+        .background(M3.color.card, in: RoundedRectangle(cornerRadius: M3.shape.medium))
+    }
+
     private var listenFAB: some View {
         Button {
             // Blokada na czas przełączania: start podnosi whisper-server, a stop

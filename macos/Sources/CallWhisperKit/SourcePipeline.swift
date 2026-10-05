@@ -55,6 +55,14 @@ public actor SourcePipeline {
     /// padło, więc przestaje wymyślać nazwy własne od zera.
     private var context = ""
     private static let maxContextChars = 400
+    /// Stałe słownictwo rozmowy (nazwy technologii, firm, osób) doklejane
+    /// przed kontekst. Zmierzone 2026-10-05: `small` bez niego pisał
+    /// „Reads Finex Js", z nim „React, Next.js" - jak `large-v3-turbo`,
+    /// ale w 0,63 s zamiast 2,4 s.
+    private let vocabulary: String
+    private var whisperPrompt: String {
+        vocabulary.isEmpty ? context : String((vocabulary + " " + context).prefix(Self.maxContextChars + 300))
+    }
     /// Co ile odświeżamy transkrypcję trwającej wypowiedzi.
     private let intervalMs: Double = 1200
     /// Zanim to minie, nie ma czego transkrybować.
@@ -133,8 +141,9 @@ public actor SourcePipeline {
     public let identifySpeakers: Bool
 
     public init(source: AudioSource, backend: ASRBackend, whisperPort: Int = 8899,
-                languageCode: String = "pl", identifySpeakers: Bool = false) {
+                languageCode: String = "pl", identifySpeakers: Bool = false, vocabulary: String = "") {
         self.source = source
+        self.vocabulary = String(Text.normalize(vocabulary).prefix(300))
         self.backend = backend
         self.identifySpeakers = identifySpeakers
         let extractor = MfccExtractor()
@@ -300,7 +309,7 @@ public actor SourcePipeline {
     /// zamiast po jego końcu.
     private func runIncremental(_ pcm: [Float], key: String, startMs: Double) async {
         do {
-            let text = try await whisper.transcribe(pcm, context: context, quality: .fast)
+            let text = try await whisper.transcribe(pcm, context: whisperPrompt, quality: .fast)
             trace("part -> \"\(text)\"")
             // Wypowiedź mogła się w międzyczasie domknąć — wynik dotyczy wtedy
             // czegoś, czego już nie ma, i nie wolno go nikomu przypisać.
@@ -356,7 +365,7 @@ public actor SourcePipeline {
             to: Swift.min(turn.endMs + padMs, u.startMs + maxUtteranceMs)
         ), !pcm.isEmpty {
             do {
-                let final = try await whisper.transcribe(pcm, context: context, quality: .accurate)
+                let final = try await whisper.transcribe(pcm, context: whisperPrompt, quality: .accurate)
                 trace("final -> \"\(final)\"")
                 if !final.isEmpty { text = final }
             } catch {

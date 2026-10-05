@@ -635,6 +635,17 @@ tekst w trakcie pisania — do magazynu trafiały wtedy niepełne klucze i wraca
 nagłówek `Bearer xpl_…\n` i ten sam błąd, który wygląda na zły klucz, a jest
 złym wklejeniem.
 
+**Aktualizacja 2026-10-05: klucz jest w pliku, nie w Keychainie.** Otwarte
+ACL nie wystarczyło. macOS sprawdza jeszcze listę partycji wpisu, a przy
+podpisie ad-hoc jest w niej hash konkretnej binarki, więc po każdej przebudowie
+pojawiał się monit „call-whisper potrzebuje dostępu do klucza
+ai.callwhisper.apikey”. Gorzej, że klucz był czytany przy każdym wykrytym
+pytaniu, także przy moście do Claude Code, który klucza nie potrzebuje, więc
+monit wyskakiwał w środku rozmowy. Teraz klucz leży w
+`~/Library/Application Support/call-whisper/api-key` z prawami 0600 (ta sama
+ochrona, jaką dawało otwarte ACL) i jest czytany tylko dla backendu API. Stary
+wpis z Keychaina przenosimy raz, i tylko gdy backendem jest API.
+
 ### Nagrywanie razem z OBS
 
 **Słuchaj** uruchamia OBS, jeśli nie działa, i włącza w nim nagrywanie.

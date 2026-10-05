@@ -65,6 +65,52 @@ public actor WhisperServer {
             .sorted()
     }
 
+    /// PID-y serwerów uruchomionych przez ten proces, dostępne bez aktora,
+    /// żeby `applicationWillTerminate` mogło je zgasić synchronicznie.
+    nonisolated(unsafe) private static var children: Set<pid_t> = []
+    private static let childrenLock = NSLock()
+
+    /// Gasi serwery uruchomione przez ten proces. Do wywołania przy wyjściu.
+    public static func terminateChildren() {
+        childrenLock.withLock {
+            for pid in children { kill(pid, SIGTERM) }
+            children.removeAll()
+        }
+    }
+
+    /// Zabija osierocone serwery z binarki call-whisper.
+    ///
+    /// Aplikacja zamknięta bez sprzątania (`kill`, awaria, `--snapshot`)
+    /// zostawiała `whisper-server` przy życiu. Zmierzone 2026-10-05: dwa takie
+    /// procesy po godzinie słuchały naraz na 8899 (whisper-server ustawia
+    /// SO_REUSEPORT), każdy z własną kopią modelu wypchniętą już z pamięci.
+    /// Gorzej: `ensureRunning` widział działający port i używał sieroty, więc
+    /// zmiana modelu albo języka w Ustawieniach nie miała żadnego skutku.
+    ///
+    /// Sierota to proces naszej binarki, którego rodzicem jest już launchd.
+    /// Serwer z `npm run whisper` ma żywego rodzica i nie jest ruszany.
+    @discardableResult
+    public static func reapOrphans() -> Int {
+        let ps = Process()
+        ps.executableURL = URL(fileURLWithPath: "/bin/ps")
+        ps.arguments = ["-Ao", "pid=,ppid=,comm="]
+        let pipe = Pipe()
+        ps.standardOutput = pipe
+        guard (try? ps.run()) != nil else { return 0 }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        ps.waitUntilExit()
+
+        var killed = 0
+        for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+            let parts = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+            guard parts.count == 3, let pid = pid_t(parts[0]), parts[1] == "1" else { continue }
+            let path = String(parts[2])
+            guard path.hasSuffix("/whisper-server"), path.lowercased().contains("call-whisper") else { continue }
+            if kill(pid, SIGTERM) == 0 { killed += 1 }
+        }
+        return killed
+    }
+
     /// Procesy per port — bo model dokładny chodzi obok szybkiego.
     private var processes: [Int: Process] = [:]
 
@@ -77,6 +123,9 @@ public actor WhisperServer {
     public func ensureRunning(_ config: Config) async throws -> Bool {
         let client = WhisperClient(endpoint: URL(string: "http://127.0.0.1:\(config.port)")!,
                                    language: config.language)
+        // Sieroty z poprzednich uruchomień najpierw, inaczej odpowiedziałyby
+        // na health i zostały użyte z dawnym modelem.
+        if Self.reapOrphans() > 0 { try? await Task.sleep(for: .milliseconds(400)) }
         // Ktoś mógł już uruchomić serwer ręcznie (`npm run whisper`) — wtedy
         // nie zakładamy drugiego na tym samym porcie.
         if await client.health() { return false }
@@ -115,6 +164,7 @@ public actor WhisperServer {
             throw ServerError.didNotStart(error.localizedDescription)
         }
         processes[config.port] = task
+        _ = Self.childrenLock.withLock { Self.children.insert(task.processIdentifier) }
 
         // Wczytanie modelu `small` zajmuje ~1 s, ale statyczny build
         // z OpenWhispr kompiluje przy starcie wbudowane shadery Metal (zmierzone
@@ -137,7 +187,12 @@ public actor WhisperServer {
     /// Zatrzymujemy tylko procesy, które sami uruchomiliśmy — serwer
     /// podniesiony ręcznie ma prawo żyć dalej.
     public func stop() {
-        for task in processes.values { task.terminate() }
+        Self.childrenLock.withLock {
+            for task in processes.values {
+                Self.children.remove(task.processIdentifier)
+                task.terminate()
+            }
+        }
         processes.removeAll()
     }
 }

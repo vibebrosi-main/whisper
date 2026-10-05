@@ -179,6 +179,13 @@ struct SettingsView: View {
                     Text("`small` — 13,3 % błędnych słów po polsku, ~930 ms. `large-v3-turbo` schodzi do 10,0 %, ale kosztuje ~1,6 s na rundę i 1,6 GB pamięci.")
                         .font(.caption).foregroundStyle(.secondary)
 
+                    TextField("Słownictwo rozmowy", text: Binding(
+                        get: { settings.whisperVocabulary }, set: { settings.whisperVocabulary = $0 }),
+                              prompt: Text("np. React, Next.js, Nuxt, Vue, Pinia"), axis: .vertical)
+                        .lineLimit(2...4)
+                    Text("Nazwy technologii, firm i osób, które padną w rozmowie. Dzięki nim `small` pisze „React, Next.js” zamiast „Reads Finex Js” i nie trzeba wolniejszego modelu.")
+                        .font(.caption).foregroundStyle(.secondary)
+
                     Toggle("Uruchamiaj serwer automatycznie", isOn: Binding(
                         get: { settings.autoStartWhisper }, set: { settings.autoStartWhisper = $0 }))
 
@@ -265,14 +272,14 @@ struct SettingsView: View {
                     Button("Zapisz klucz", action: saveKey)
                         .disabled(keyDraft.trimmingCharacters(in: .whitespacesAndNewlines) == settings.apiKey)
                     if let keySaved {
-                        Label(keySaved ? "Zapisany w Keychainie" : "Keychain odmówił zapisu",
+                        Label(keySaved ? "Zapisany" : "Nie udało się zapisać",
                               systemImage: keySaved ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .font(.callout)
                             .foregroundStyle(keySaved ? .green : .orange)
                     }
                 }
 
-                Text("Trzymany w Keychainie, nie w pliku ustawień. Białe znaki są przycinane — wklejony klucz z końcem linii dawałby 401.")
+                Text("Trzymany w pliku z prawami 0600 (tylko Twoje konto), nie w ustawieniach. Bez pytań o hasło do pęku kluczy. Białe znaki są przycinane - wklejony klucz z końcem linii dawałby 401.")
                     .font(.caption).foregroundStyle(.secondary)
 
                 HStack {

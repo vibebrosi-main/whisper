@@ -7,7 +7,7 @@ import CallWhisperKit
 ///
 /// Sprawdza klucz i model tą samą ścieżką kodu, której używa aplikacja —
 /// łącznie ze strumieniowaniem SSE i pomiarem czasu do pierwszego tokenu.
-/// Klucz bierze z Keychaina, a jeśli go tam nie ma, ze zmiennej XPL_API_KEY.
+/// Klucz bierze z pliku aplikacji, a jeśli go tam nie ma, ze zmiennej XPL_API_KEY.
 func runProbe(model: String?) async -> Int32 {
     let settings = await MainActor.run { AppSettings.shared }
     let stored = await MainActor.run { settings.apiKey }
@@ -37,14 +37,12 @@ func runProbe(model: String?) async -> Int32 {
     }
 }
 
-/// `call-whisper --set-key <klucz>` — zapisuje klucz do Keychaina ścieżką
-/// aplikacji, żeby to ona była właścicielem wpisu. Wpis założony z zewnątrz
-/// (np. `security add-generic-password -T ""`) potrafi być niemożliwy do
-/// odczytania przez aplikację, mimo że wygląda poprawnie na liście.
+/// `call-whisper --set-key <klucz>` - zapisuje klucz (plik 0600) ścieżką
+/// aplikacji i odczytuje go z powrotem.
 func runSetKey(_ value: String) async -> Int32 {
     let ok = await MainActor.run { AppSettings.shared.setAPIKey(value) }
     guard ok else {
-        FileHandle.standardError.write(Data("Keychain odmówił zapisu.\n".utf8))
+        FileHandle.standardError.write(Data("Nie udało się zapisać klucza w \(AppSettings.apiKeyURL.path).\n".utf8))
         return 1
     }
     let readBack = await MainActor.run { AppSettings.shared.apiKey }

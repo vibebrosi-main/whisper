@@ -23,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var canNotify: Bool { Bundle.main.bundleIdentifier != nil }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Serwery mowy osierocone przez poprzednie, przerwane uruchomienie.
+        Task.detached { WhisperServer.reapOrphans() }
         if canNotify {
             let center = UNUserNotificationCenter.current()
             center.delegate = self
@@ -38,6 +40,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         syncOBS()
     }
 
+    /// Zwykłe wyjście (⌘Q) gasi serwer mowy od razu; na `await` nie ma tu czasu.
+    func applicationWillTerminate(_ notification: Notification) {
+        WhisperServer.terminateChildren()
+    }
+
     func syncOBS() {
         if settings.followOBS { obs.start() } else { obs.stop() }
     }
@@ -45,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Nagranie włączone ręcznie w OBS. Gdy to call-whisper je włączył,
     /// `OBSLink` tego zdarzenia tu nie przekazuje.
     private func obsRecordingStarted(at origin: Double) {
+        // „Sam dźwięk": OBS nagrywa po swojemu, nasłuch się nie wtrąca.
+        guard settings.followOBS else { return }
         guard !recorder.isRunning, !recorder.isProcessing else {
             notify("OBS nagrywa, ale call-whisper już słucha",
                    body: "Czasy w transkrypcie nie pokryją się z filmem. Zatrzymaj nasłuch i zacznij nagranie od nowa.",
@@ -141,6 +150,7 @@ struct CallWhisperApp: App {
         Window("call-whisper", id: "main") {
             MainView(recorder: recorder, settings: settings, overlay: overlay, meetings: delegate.meetings)
                 .frame(minWidth: 720, minHeight: 500)
+                .onChange(of: settings.followOBS) { _, _ in delegate.syncOBS() }
         }
         // Pasek tytułu ukryty: jego miejsce zajmuje górny pasek aplikacji M3.
         .windowStyle(.hiddenTitleBar)

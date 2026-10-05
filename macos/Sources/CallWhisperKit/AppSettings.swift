@@ -115,7 +115,7 @@ public final class AppSettings: ObservableObject {
         case language, modelID, assistantEnabled, autoAsk, useMicrophone, assistantBackend, claudeModel
         case markdownLocale, absoluteTimestamps, minConfidence, title, projectContextPath
         case asrBackend, whisperModel, whisperPort, autoStartWhisper, identifySpeakers
-        case diarizeAfter, detectMeetings, autoStartOnMeeting, followOBS
+        case diarizeAfter, detectMeetings, autoStartOnMeeting, followOBS, whisperVocabulary
     }
 
     /// Domyślny język mowy bierzemy z systemu, a nie na sztywno — inaczej
@@ -296,6 +296,13 @@ public final class AppSettings: ObservableObject {
         set { set(.followOBS, newValue) }
     }
 
+    /// Słownictwo podpowiadane whisperowi: nazwy technologii, firm i osób,
+    /// które padną w rozmowie. Najtańsza poprawa jakości (patrz `WhisperClient`).
+    public var whisperVocabulary: String {
+        get { get(.whisperVocabulary, "") }
+        set { set(.whisperVocabulary, newValue) }
+    }
+
     /// Silnik rozpoznawania mowy.
     public var asrBackend: ASRBackend {
         get { ASRBackend(rawValue: get(.asrBackend, ASRBackend.whisperLocal.rawValue)) ?? .whisperLocal }
@@ -320,21 +327,75 @@ public final class AppSettings: ObservableObject {
         set { set(.autoStartWhisper, newValue) }
     }
 
-    /// Klucz API — Keychain, nie `UserDefaults`.
+    /// Plik z kluczem API, prawa 0600.
+    nonisolated public static var apiKeyURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/call-whisper/api-key")
+    }
+
+    /// Klucz API z pliku 0600, nie z Keychaina.
+    ///
+    /// Keychain przy podpisie ad-hoc nie działa „plug and play": wpis jest
+    /// związany z hashem konkretnej binarki (lista partycji), więc po każdej
+    /// przebudowie macOS pytał o hasło do pęku kluczy, i to w środku rozmowy.
+    /// Otwarte ACL, którego używaliśmy wcześniej, i tak dawało dostęp każdemu
+    /// procesowi na koncie, czyli tę samą ochronę co plik 0600.
+    ///
+    /// Odczyt nigdy nie dotyka Keychaina. Stary wpis przenosi
+    /// `migrateLegacyAPIKey`, wołane tylko tam, gdzie klucz jest naprawdę
+    /// potrzebny (backend API).
     ///
     /// Przycinamy białe znaki: klucz prawie zawsze trafia tu przez wklejenie,
     /// a doklejony znak nowej linii daje nagłówek `Bearer xpl_…\n` i 401
-    /// „invalid_key" — błąd, który wygląda na zły klucz, a jest złym wklejeniem.
+    /// „invalid_key" - błąd, który wygląda na zły klucz, a jest złym wklejeniem.
     public var apiKey: String {
-        get { Keychain.read(account: "experientiallabs") ?? "" }
+        get {
+            if let stored = try? String(contentsOf: Self.apiKeyURL, encoding: .utf8) {
+                return stored.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return migrateLegacyAPIKey()
+        }
         set { _ = setAPIKey(newValue) }
     }
 
-    /// Jak `apiKey`, ale mówi, czy zapis się powiódł — Keychain potrafi odmówić.
+    /// Jednorazowe przeniesienie klucza z Keychaina do pliku. Może raz
+    /// zapytać o hasło, ale tylko komuś, kto używa API i ma tam stary klucz;
+    /// przy Claude Code nie jest wołane wcale.
+    private func migrateLegacyAPIKey() -> String {
+        guard assistantBackend == .api,
+              !UserDefaults.standard.bool(forKey: "legacyKeyMigrated") else { return "" }
+        UserDefaults.standard.set(true, forKey: "legacyKeyMigrated")
+        guard let legacy = Keychain.read(account: "experientiallabs"), !legacy.isEmpty else { return "" }
+        setAPIKey(legacy)
+        return legacy.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Jak `apiKey`, ale mówi, czy zapis się powiódł.
     @discardableResult
     public func setAPIKey(_ value: String) -> Bool {
         objectWillChange.send()
-        return Keychain.write(value.trimmingCharacters(in: .whitespacesAndNewlines),
-                              account: "experientiallabs")
+        let url = Self.apiKeyURL
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            try? FileManager.default.removeItem(at: url)
+            return true
+        }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            // Plik zakładamy od razu z prawami 0600, zanim trafi do niego klucz.
+            if !FileManager.default.fileExists(atPath: url.path) {
+                FileManager.default.createFile(atPath: url.path, contents: nil,
+                                               attributes: [.posixPermissions: 0o600])
+            }
+            let handle = try FileHandle(forWritingTo: url)
+            defer { try? handle.close() }
+            try handle.truncate(atOffset: 0)
+            try handle.write(contentsOf: Data(trimmed.utf8))
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            return true
+        } catch {
+            return false
+        }
     }
 }
