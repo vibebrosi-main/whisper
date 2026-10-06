@@ -232,7 +232,7 @@ struct SettingsView: View {
                         }
                         Text("Bez klucza API i bez dodatkowych opłat — pytania idą przez Twoje lokalne CLI Claude Code. Pierwsze pytanie po starcie kosztuje ~3,9 s, kolejne ~1,8 s; proces jest rozgrzewany przy starcie nasłuchu.")
                             .font(.caption).foregroundStyle(.secondary)
-                        Text("Haiku nie jest szybszy od domyślnego — wąskim gardłem jest narzut sesji, nie inferencja.")
+                        Text("Sonnet odpowiada najszybciej: pierwsze słowo po ~1-2 s (zmierzone 2026-10-06). Haiku bywa niedostępny.")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
                         Label("Nie znalazłem CLI `claude`. Zainstaluj Claude Code albo przełącz się na API.",

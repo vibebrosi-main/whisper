@@ -61,7 +61,7 @@ public actor SourcePipeline {
     /// ale w 0,63 s zamiast 2,4 s.
     private let vocabulary: String
     private var whisperPrompt: String {
-        vocabulary.isEmpty ? context : String((vocabulary + " " + context).prefix(Self.maxContextChars + 300))
+        vocabulary.isEmpty ? context : String((vocabulary + " " + context).prefix(Self.maxContextChars + Vocabulary.maxChars))
     }
     /// Co ile odświeżamy transkrypcję trwającej wypowiedzi.
     private let intervalMs: Double = 1200

@@ -135,7 +135,7 @@ public final class AppSettings: ObservableObject {
             // a jest 2-3x szybszy od darmowych modeli w API.
             Key.assistantBackend.rawValue: ClaudeBridge.isAvailable
                 ? AssistantBackend.claudeCode.rawValue : AssistantBackend.api.rawValue,
-            Key.claudeModel.rawValue: "",
+            Key.claudeModel.rawValue: "sonnet",
             Key.assistantEnabled.rawValue: true,
             Key.autoAsk.rawValue: true,
             // Domyślnie tylko dźwięk systemu. Mikrofon dokładany do głośników
@@ -201,7 +201,7 @@ public final class AppSettings: ObservableObject {
 
     /// Model przekazywany do CLI Claude Code. Pusty = domyślny z Claude Code.
     public var claudeModel: String {
-        get { get(.claudeModel, "") }
+        get { get(.claudeModel, "sonnet") }
         set { set(.claudeModel, newValue) }
     }
 

@@ -95,6 +95,31 @@ const durationCases = [0, 8000, 2_531_000, 3_732_000].map((ms) => ({ ms, result:
 
 // ---------- pytania ----------
 const questionCases = [
+  // Rozmowa rekrutacyjna 2026-10-06: polecenia zamiast pytań i pytania,
+  // które bez zdania przed nimi nic nie znaczą.
+  'Okej, to opowiedz mi teraz więcej o tym swoim ostatnim projekcie, czym się tam zajmowałeś, za co byłeś odpowiedzialny.',
+  'Tak, ale pozwól, że zacznijmy od tego, jak wygląda sytuacja zatrudnieniowa teraz u ciebie, dlaczego szukasz pracy.',
+  'Wcześniej to były obowiązki raczej związane z testami manualnymi. Zgadza się?',
+  'Okej, rzeczy administracyjne. Są trzy. Pierwsze, od kiedy jesteś dostępny.',
+  'Okej, mam pytanie, czym różni się Vue od Nuxta?',
+  'I rozumiem, że to zatrudnienie do końca roku jest dla ciebie okej.',
+  'Nie, po prostu jakie featury w danej aplikacji stworzyłeś przy użyciu tego frameworku, co w nim napisałeś.',
+  'Tak, ja się może połączę, jeżeli ty masz jakieś konkretne pytania, to śmiało możesz je zadawać.',
+  'Podobało mi się, jak to zrobiłeś.',
+  'Nie, po co to robić.',
+  'Jak widzisz, projekt jest dość duży.',
+  'Jak wiesz, klient jest z Niemiec.',
+  'A co robisz, kiedy nie zgadzasz się z decyzją lidera.',
+  'Jak radzisz sobie z presją czasu.',
+  'Widać mnie dobrze?',
+  'Masz rację, to dobry pomysł.',
+  'Jesteś gotowy na zadanie techniczne na żywo?',
+  'Co ciekawe, klient sam pisze testy.',
+  'A jak podchodzisz do testowania komponentów.',
+  'Gdzie się widzisz za pięć lat?',
+  'Rozumiem, że praca w pełni zdalna ci pasuje.',
+  'Dzień dobry, słyszymy się?',
+  'Jak widzisz, projekt jest dość duży.',
   'A jakie RPO i RTO to nam daje?',
   'Wracając do migracji, mam pytanie, czym różni się RPO od RTO',
   'czy mnie słychać',
@@ -242,6 +267,9 @@ const cleanCases = [
   ' Dziękuje za uwagę. Okej, a powiedz mi, jakbyś to zrobił?',
   'Zdjękuje za oglądanie! A z jakich menedżerów stanu korzystałeś?',
   'Dziękuję za uwagę.',
+  // Segmenty cięte w środku słowa (whisper-server bez split_on_word, 2026-10-06).
+  ' jest firmą outs\nourcingową.\n Najpóźniej w poniedz\niałek.\n',
+  ' Google\nCloud, B2\nB, dobry,\nzaczynamy.',
 ].map((input) => ({ input, result: cleanText(input) }));
 
 const out = {

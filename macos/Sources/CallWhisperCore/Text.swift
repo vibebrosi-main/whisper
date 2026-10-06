@@ -110,7 +110,13 @@ public enum Text {
         var out = ""
         var square = 0
         var round = 0
-        for ch in raw {
+        let chars = Array(raw)
+        for (i, ch) in chars.enumerated() {
+            // Granica segmentu w środku słowa: litera, łamanie, mała litera bez
+            // spacji (nowe słowo whisper zaczyna od spacji). Bez tego
+            // „odpow\niedzialny" dawało w notatce „odpow iedzialny".
+            if ch == "\n", i > 0, i + 1 < chars.count,
+               chars[i - 1].isLetter || chars[i - 1].isNumber, chars[i + 1].isLowercase { continue }
             switch ch {
             case "[": square += 1; out.append(" ")
             case "]": square = Swift.max(0, square - 1); out.append(" ")

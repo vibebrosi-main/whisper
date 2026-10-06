@@ -114,7 +114,10 @@ public final class Recorder: ObservableObject {
                                               whisperPort: settings.whisperPort,
                                               languageCode: settings.languageCode,
                                               identifySpeakers: settings.identifySpeakers,
-                                              vocabulary: settings.whisperVocabulary)
+                                              // Nazwy z kontekstu projektu doklejamy same: plik
+                                              // już je ma, a whisper bez nich je przekręca.
+                                              vocabulary: Vocabulary.merge(settings.whisperVocabulary,
+                                                                           context: settings.projectContext))
                 pipelines[source] = pipeline
                 try await pipeline.start(locale: settings.locale, onUpdate: { [weak self] update in
                     Task { @MainActor in self?.apply(update) }
@@ -542,6 +545,10 @@ public final class Recorder: ObservableObject {
     /// tego bufor rósł, odpowiedzi przychodziły do pytań sprzed pół minuty,
     /// a interfejs wyglądał na zawieszony.
     private func handleDetected(_ found: QuestionWatcher.Found) {
+        // Własne pytania („Jak duży jest zespół?") nie są do podpowiadania:
+        // sufler odpowiadałby sam sobie, a do tego zajmowałby kolejkę, którą
+        // powinno dostać następne pytanie rozmówcy.
+        guard found.speaker != AudioSource.microphone.label else { return }
         guard askTasks.isEmpty else {
             // Jedno pytanie na raz. Nowsze wygrywa: odpowiedź na to, co padło
             // przed chwilą, jest warta więcej niż na to sprzed kilkunastu sekund.

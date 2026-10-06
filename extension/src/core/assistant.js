@@ -31,6 +31,19 @@ const ASK_PHRASES = [
   'mam pytanie', 'pytanie do', 'wie ktos', 'wiesz moze', 'czy ktos wie',
   'jak to dziala', 'co to znaczy', 'zastanawiam sie', 'nie wiem czy',
   'ciekawi mnie', 'wytlumacz', 'przypomnij mi',
+  // Rozmowa rekrutacyjna to w połowie polecenia, nie pytania: „opowiedz mi
+  // o projekcie", „przybliż, za co odpowiadałeś". Bez pytajnika i bez słowa
+  // pytającego na początku przepadały wszystkie.
+  'opowiedz', 'opowiesz', 'opisz', 'przybliz', 'podziel sie', 'pochwal sie',
+  'powiedz mi o', 'powiedz cos o', 'dlaczego', 'od kiedy', 'jak wyglada',
+  'jesli mialbys', 'jesli mialabys', 'gdybys mial', 'gdybys miala', 'zgadza sie',
+  // Prośba o potwierdzenie warunków: „…do końca roku jest dla ciebie okej."
+  'dla ciebie ok', 'dla ciebie okej', 'pasuje ci', 'odpowiada ci', 'ci pasuje', 'ci odpowiada',
+  // Zaproszenie do pytań: „jeżeli masz jakieś pytania, śmiało". Podpowiedzią
+  // są wtedy pytania do zadania, nie odpowiedź.
+  'masz jakies', 'masz pytania', 'macie jakies pytania', 'chcialbys zadac',
+  'chcialbys zapytac', 'chcesz o cos zapytac', 'any questions',
+  'tell me about', 'walk me through', 'describe',
   'anyone know', 'does anyone', 'what does', 'how do we', 'quick question',
 ];
 
@@ -51,7 +64,9 @@ export function fold(text) {
 
 /** Pytania techniczno-organizacyjne, na które asystent nie ma czego odpowiadać. */
 const SMALL_TALK_PATTERNS = [
-  /\b(slychac|slyszysz|slyszycie|slysze|widac|widzisz|widzicie|widze)\b/,
+  /\b(slychac|slyszysz|slyszycie|slysze|slyszymy)\b/,
+  // „Widać mój ekran?" tak, „Gdzie się widzisz za pięć lat?" nie.
+  /\b(widac|widzisz|widzicie|widze)\b.*\b(mnie|nas|cie|was|ekran\w*|prezentacj\w*|kamer\w*)\b/,
   /\b(hear|see)\s+(me|my\s+screen|you)\b/,
   /\bhalo+\b/,
   /\bjestes\s+tam\b/,
@@ -101,6 +116,11 @@ export function splitClausesWithEnd(text) {
 
 /** Twardy limit długości pytania. Prompt ma być krótki, nie kompletny. */
 const MAX_QUESTION_CHARS = 220;
+/**
+ * Pytanie krótsze niż to samo nic nie znaczy („Zgadza się?", „Jakie były?")
+ * i dostaje zdanie, które stoi przed nim.
+ */
+const MIN_STANDALONE_CHARS = 30;
 
 const ALL_OPENERS = [...QUESTION_OPENERS.pl, ...QUESTION_OPENERS.en].map((o) => fold(o).split(' '));
 
@@ -124,8 +144,21 @@ const FILLER_WORDS = new Set([
   'a', 'i', 'to', 'wiec', 'ale', 'czyli', 'jeszcze', 'jedno', 'jakby', 'teraz',
   'powiedz', 'powiedzcie', 'mi', 'nam', 'mam', 'pytanie', 'pytanko', 'w', 'sensie', 'znaczy',
   'na', 'przyklad', 'generalnie', 'ogolnie', 'mozesz', 'mozecie', 'powiedziec',
+  // „Nie, po prostu jakie…" - sprzeciw przed właściwym pytaniem.
+  'nie',
   'so', 'well', 'okay', 'alright', 'right', 'tell', 'me', 'question',
 ]);
+
+/**
+ * Czasownik w 2. osobie („stworzyłeś", „zrobiłabyś") - zdanie jest skierowane
+ * do rozmówcy. Z kropką od ASR słowo pytające samo nie wystarcza, ale razem
+ * z takim czasownikiem to pytanie: „jakie featury stworzyłeś, co napisałeś."
+ * Urwane („…ile już...") nie: tam trzeba poczekać na resztę.
+ */
+const SECOND_PERSON = /^(?:\p{L}{3,}(?:les|las|lbys|labys|esz|isz|ysz|asz)|jestes)$/u;
+/** „Jak widzisz, …", „jak wiesz, …" - wtrącenia, nie pytania. */
+const ASIDE_VERBS = new Set(['widzisz', 'wiesz', 'slyszysz', 'rozumiesz', 'mowisz', 'pamietasz', 'mowiles', 'wspominales']);
+const isSecondPerson = (w) => SECOND_PERSON.test(w) && !ASIDE_VERBS.has(w);
 
 /** Końcówki, które z oznajmienia robią prośbę o potwierdzenie: „…, tak?". */
 const CONFIRMATION_TAGS = new Set(['tak', 'nie', 'prawda', 'no nie', 'nie prawda', 'right', 'yeah']);
@@ -179,7 +212,13 @@ const hasAskPhrase = (text) => {
 /** Czy fraza zaczyna się od słowa pytającego (po wypełniaczach i jednym przyimku). */
 function opensQuestion(clause) {
   let all = words(clause);
-  while (all.length && FILLER_WORDS.has(all[0]) && !ALL_OPENERS.some((o) => o[0] === all[0])) all = all.slice(1);
+  for (;;) {
+    // „Nie, po prostu jakie featury…" - „po" otwiera też „po co", więc
+    // „po prostu" zdejmujemy jako parę.
+    if (all[0] === 'po' && all[1] === 'prostu') all = all.slice(2);
+    else if (all.length && FILLER_WORDS.has(all[0]) && !ALL_OPENERS.some((o) => o[0] === all[0])) all = all.slice(1);
+    else break;
+  }
   if (!all.length) return false;
   const starts = LEADING_PARTICLES.has(all[0]) ? [all, all.slice(1)] : [all];
   return starts.some((ws) => ws.length > 0 && ALL_OPENERS.some((parts) => parts.every((part, i) => ws[i] === part)));
@@ -220,7 +259,14 @@ function scoreSentence(sentence) {
     const atStart = k === first;
     const afterLead = k > 0 && (isFillerClause(clauses[k - 1].text) || hasAskPhrase(clauses[k - 1].text));
     if (!atStart && !afterLead) continue;
-    if (opensQuestion(clauses[k].text)) { opener = true; head = k; break; }
+    if (opensQuestion(clauses[k].text)) {
+      opener = true;
+      // „Opowiedz mi o projekcie, czym się tam zajmowałeś" - polecenie przed
+      // słowem pytającym niesie treść (o który projekt chodzi), więc pytanie
+      // zaczyna się od niego. Sam wstęp („mam pytanie, czym…") nie.
+      head = k > 0 && !isFillerClause(clauses[k - 1].text) && hasAskPhrase(clauses[k - 1].text) ? k - 1 : k;
+      break;
+    }
   }
 
   const asked = sentence.end === '?';
@@ -241,6 +287,10 @@ function scoreSentence(sentence) {
     // albo razem z pytajnikiem.
     confidence += asked || sentence.end === '' ? 0.4 : 0.2;
     reasons.push('słowo-pytające');
+    if (sentence.end === '.' && words(sentence.text).some(isSecondPerson)) {
+      confidence += 0.2;
+      reasons.push('do-rozmówcy');
+    }
   }
   if (phrase) {
     confidence += 0.4;
@@ -295,6 +345,10 @@ export function detectQuestion(text) {
       return body + (s.end === '…' ? '…' : s.end);
     })
     .join(' ');
+  if (from > 0 && render(from, to).length < MIN_STANDALONE_CHARS) {
+    from--;
+    scored[from] = { ...scored[from], start: 0 };
+  }
   let question = render(from, to);
   if (question.length > MAX_QUESTION_CHARS) question = render(best, best);
   if (question.length > MAX_QUESTION_CHARS) question = `${question.slice(0, MAX_QUESTION_CHARS - 1)}…`;
@@ -302,8 +356,15 @@ export function detectQuestion(text) {
   return { isQuestion: true, confidence: top.confidence, reason: top.reasons.join('+'), question };
 }
 
-const DEFAULT_CONTEXT_SEGMENTS = 6;
-const MAX_CONTEXT_CHARS = 1200;
+/**
+ * Okno transkryptu w prompcie. Było 6 wypowiedzi / 1200 znaków i przy
+ * „masz jakieś pytania?" model dopytywał o to, co padło 15 minut wcześniej
+ * (zdalna praca, branża, długość projektu). 4000 znaków to ~1000 tokenów:
+ * zmierzone 2026-10-06 na Sonnecie: TTFT 0,9 s -> 2,0 s w medianie, ale
+ * pytania do zadania przestały powtarzać to, co rekruter już powiedział.
+ */
+const DEFAULT_CONTEXT_SEGMENTS = 30;
+const MAX_CONTEXT_CHARS = 4000;
 /** Twardy limit kontekstu projektu — dłuższy opis to wolniejsza odpowiedź. */
 const MAX_PROJECT_CONTEXT_CHARS = 8000;
 

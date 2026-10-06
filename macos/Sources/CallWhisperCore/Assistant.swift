@@ -25,12 +25,27 @@ private let askPhrases = [
     "mam pytanie", "pytanie do", "wie ktos", "wiesz moze", "czy ktos wie",
     "jak to dziala", "co to znaczy", "zastanawiam sie", "nie wiem czy",
     "ciekawi mnie", "wytlumacz", "przypomnij mi",
+    // Rozmowa rekrutacyjna to w połowie polecenia, nie pytania: „opowiedz mi
+    // o projekcie", „przybliż, za co odpowiadałeś". Bez pytajnika i bez słowa
+    // pytającego na początku przepadały wszystkie.
+    "opowiedz", "opowiesz", "opisz", "przybliz", "podziel sie", "pochwal sie",
+    "powiedz mi o", "powiedz cos o", "dlaczego", "od kiedy", "jak wyglada",
+    "jesli mialbys", "jesli mialabys", "gdybys mial", "gdybys miala", "zgadza sie",
+    // Prośba o potwierdzenie warunków: „…do końca roku jest dla ciebie okej."
+    "dla ciebie ok", "dla ciebie okej", "pasuje ci", "odpowiada ci", "ci pasuje", "ci odpowiada",
+    // Zaproszenie do pytań: „jeżeli masz jakieś pytania, śmiało". Podpowiedzią
+    // są wtedy pytania do zadania, nie odpowiedź.
+    "masz jakies", "masz pytania", "macie jakies pytania", "chcialbys zadac",
+    "chcialbys zapytac", "chcesz o cos zapytac", "any questions",
+    "tell me about", "walk me through", "describe",
     "anyone know", "does anyone", "what does", "how do we", "quick question",
 ]
 
 /// Pytania techniczno-organizacyjne, na które asystent nie ma czego odpowiedzieć.
 private let smallTalkPatterns: [NSRegularExpression] = [
-    #"\b(slychac|slyszysz|slyszycie|slysze|widac|widzisz|widzicie|widze)\b"#,
+    #"\b(slychac|slyszysz|slyszycie|slysze|slyszymy)\b"#,
+    // „Widać mój ekran?" tak, „Gdzie się widzisz za pięć lat?" nie.
+    #"\b(widac|widzisz|widzicie|widze)\b.*\b(mnie|nas|cie|was|ekran\w*|prezentacj\w*|kamer\w*)\b"#,
     #"\b(hear|see)\s+(me|my\s+screen|you)\b"#,
     #"\bhalo+\b"#,
     #"\bjestes\s+tam\b"#,
@@ -70,6 +85,9 @@ public enum QuestionDetector {
 
     /// Twardy limit długości pytania. Prompt ma być krótki, nie kompletny.
     static let maxQuestionChars = 220
+    /// Pytanie krótsze niż to samo nic nie znaczy („Zgadza się?", „Jakie
+    /// były?") i dostaje zdanie, które stoi przed nim.
+    static let minStandaloneChars = 30
 
     /// Słówka, które w mowie stoją PRZED właściwym słowem pytającym: „od której
     /// wersji", „w czym piszesz". Dopuszczamy najwyżej jedno.
@@ -86,6 +104,8 @@ public enum QuestionDetector {
         "a", "i", "to", "wiec", "ale", "czyli", "jeszcze", "jedno", "jakby", "teraz",
         "powiedz", "powiedzcie", "mi", "nam", "mam", "pytanie", "pytanko", "w", "sensie", "znaczy",
         "na", "przyklad", "generalnie", "ogolnie", "mozesz", "mozecie", "powiedziec",
+        // „Nie, po prostu jakie…" - sprzeciw przed właściwym pytaniem.
+        "nie",
         "so", "well", "alright", "right", "tell", "me", "question",
     ]
 
@@ -147,6 +167,18 @@ public enum QuestionDetector {
             .map(String.init)
     }
 
+    /// „Jak widzisz, …", „jak wiesz, …" - wtrącenia, nie pytania.
+    static let asideVerbs: Set<String> = [
+        "widzisz", "wiesz", "slyszysz", "rozumiesz", "mowisz", "pamietasz", "mowiles", "wspominales",
+    ]
+
+    static func isSecondPerson(_ word: String) -> Bool {
+        guard word.allSatisfy(\.isLetter), !asideVerbs.contains(word) else { return false }
+        if word == "jestes" { return true }
+        return ["les", "las", "lbys", "labys", "esz", "isz", "ysz", "asz"]
+            .contains { word.hasSuffix($0) && word.count - $0.count >= 3 }
+    }
+
     static func isFillerClause(_ clause: String) -> Bool {
         words(clause).allSatisfy { fillerWords.contains($0) }
     }
@@ -159,8 +191,16 @@ public enum QuestionDetector {
     /// Czy fraza zaczyna się od słowa pytającego (po wypełniaczach i jednym przyimku).
     static func opensQuestion(_ clause: String) -> Bool {
         var all = words(clause)
-        while let first = all.first, fillerWords.contains(first), !allOpeners.contains(where: { $0[0] == first }) {
-            all.removeFirst()
+        while let first = all.first {
+            // „Nie, po prostu jakie featury…" - „po" otwiera też „po co", więc
+            // „po prostu" zdejmujemy jako parę.
+            if first == "po", all.count > 1, all[1] == "prostu" {
+                all.removeFirst(2)
+            } else if fillerWords.contains(first), !allOpeners.contains(where: { $0[0] == first }) {
+                all.removeFirst()
+            } else {
+                break
+            }
         }
         guard let first = all.first else { return false }
         var starts = [all]
@@ -209,7 +249,12 @@ public enum QuestionDetector {
             let afterLead = k > 0 && (isFillerClause(parts[k - 1].text) || hasAskPhrase(parts[k - 1].text))
             if (atStart || afterLead) && opensQuestion(parts[k].text) {
                 opener = true
-                head = k
+                // „Opowiedz mi o projekcie, czym się tam zajmowałeś" - polecenie
+                // przed słowem pytającym niesie treść (o który projekt chodzi),
+                // więc pytanie zaczyna się od niego. Sam wstęp („mam pytanie,
+                // czym…") nie.
+                let lead = k > 0 && !isFillerClause(parts[k - 1].text) && hasAskPhrase(parts[k - 1].text)
+                head = lead ? k - 1 : k
                 break
             }
             k += 1
@@ -231,6 +276,13 @@ public enum QuestionDetector {
             // oznajmujące, a wielokropek, że urwane.
             confidence += asked || sentence.end.isEmpty ? 0.4 : 0.2
             reasons.append("słowo-pytające")
+            // Czasownik w 2. osobie („stworzyłeś") - zdanie jest skierowane do
+            // rozmówcy. Z kropką od ASR słowo pytające samo nie wystarcza, ale
+            // razem z takim czasownikiem to pytanie. Urwane („…ile już...") nie.
+            if sentence.end == "." && words(sentence.text).contains(where: isSecondPerson) {
+                confidence += 0.2
+                reasons.append("do-rozmówcy")
+            }
         }
         if phrase {
             confidence += 0.4
@@ -258,7 +310,7 @@ public enum QuestionDetector {
         if smallTalkPatterns.contains(where: { matches($0, folded) }) { return no("small-talk") }
 
         let sentences = splitSentences(raw)
-        let scored = sentences.map(score)
+        var scored = sentences.map(score)
         guard !scored.isEmpty else { return no("brak-sygnałów") }
         var best = 0
         for (i, s) in scored.enumerated() where s.confidence > scored[best].confidence { best = i }
@@ -285,6 +337,10 @@ public enum QuestionDetector {
                 return body + s.end
             }.joined(separator: " ")
         }
+        if from > 0 && render(from, to).count < minStandaloneChars {
+            from -= 1
+            scored[from].start = 0
+        }
         var question = render(from, to)
         if question.count > maxQuestionChars { question = render(best, best) }
         if question.count > maxQuestionChars { question = String(question.prefix(maxQuestionChars - 1)) + "…" }
@@ -298,8 +354,13 @@ public enum QuestionDetector {
     }
 }
 
-public let defaultContextSegments = 6
-private let maxContextChars = 1200
+/// Okno transkryptu w prompcie. Było 6 wypowiedzi / 1200 znaków i przy
+/// „masz jakieś pytania?" model dopytywał o to, co padło 15 minut wcześniej
+/// (zdalna praca, branża, długość projektu). 4000 znaków to ~1000 tokenów:
+/// zmierzone 2026-10-06 na Sonnecie: TTFT 0,9 s -> 2,0 s w medianie, ale
+/// pytania do zadania przestały powtarzać to, co rekruter już powiedział.
+public let defaultContextSegments = 30
+private let maxContextChars = 4000
 /// Twardy limit kontekstu projektu — dłuższy opis to wolniejsza odpowiedź.
 private let maxProjectContextChars = 8000
 

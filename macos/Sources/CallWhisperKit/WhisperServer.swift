@@ -144,6 +144,8 @@ public actor WhisperServer {
             "--host", "127.0.0.1",
             "--language", config.language,
             "--threads", String(config.threads),
+            // Segmenty cięte na granicy słowa, nie tokenu (patrz WhisperClient).
+            "--split-on-word",
         ]
         // Wyjście serwera idzie do pliku, nie do potoku.
         //

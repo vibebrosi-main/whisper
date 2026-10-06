@@ -94,9 +94,9 @@ test('kontekst jest przycinany — każdy token to opóźnienie', () => {
 });
 
 test('bardzo długi kontekst jest ucinany od początku', () => {
-  const huge = [{ speaker: 'A', text: 'x'.repeat(5000) }];
+  const huge = [{ speaker: 'A', text: 'x'.repeat(10_000) }];
   const prompt = buildPrompt({ question: 'i co teraz', segments: huge });
-  assert.ok(prompt.length < 2000, `prompt ma ${prompt.length} znaków`);
+  assert.ok(prompt.length < 4200, `prompt ma ${prompt.length} znaków`);
   assert.ok(prompt.includes('…'));
 });
 
@@ -432,4 +432,69 @@ test('fragmenty odpowiedzi lecą strumieniem do onDelta', async () => {
   const result = await pending;
   assert.deepEqual(chunks, ['Odpo', 'wiedź']);
   assert.equal(result.text, 'Odpowiedź');
+});
+
+/* ---------- zestaw rekrutacyjny (2026-10-06): pytania, polecenia, small talk ---------- */
+
+test('rozmowa rekrutacyjna: pytania i polecenia są wykrywane', () => {
+  for (const text of [
+    'Jakie masz doświadczenie z TypeScriptem?',
+    'Ile lat pracujesz komercyjnie jako frontend developer',
+    'Czym się różni computed od watch w Vue?',
+    'A jak podchodzisz do testowania komponentów.',
+    'Dlaczego chcesz odejść z obecnej firmy?',
+    'Jakie są twoje słabe strony?',
+    'Gdzie się widzisz za pięć lat?',
+    'Okej, a co byś zrobił, gdyby klient zmienił wymagania w połowie sprintu?',
+    'Słuchaj, a Pinię znasz?',
+    'Pracowałeś z Nuxtem trzy czy z dwójką?',
+    'Opowiedz mi o jakimś trudnym bugu, który rozwiązałeś.',
+    'Opisz swój typowy dzień pracy.',
+    'Przybliż mi proszę, jak wyglądała architektura tego projektu.',
+    'Pochwal się projektem, z którego jesteś najbardziej dumny.',
+    'Powiedz coś o sobie.',
+    'Wytłumacz mi, jak działa reaktywność w Vue trzy.',
+    'Rozumiem, że praca w pełni zdalna ci pasuje.',
+    'W CV masz Pythona, ale to raczej podstawy, zgadza się?',
+    'Gdybyś miał wybrać między Vue a Reactem, co byś wybrał.',
+    'Masz jakieś pytania do nas?',
+    'Zostało nam pięć minut, chciałbyś o coś zapytać?',
+    'Can you tell me about your last project?',
+    'What would you do if a deploy broke production?',
+    'Walk me through your approach to state management.',
+    'A co robisz, kiedy nie zgadzasz się z decyzją lidera.',
+    'Jak radzisz sobie z presją czasu.',
+    'Jesteś gotowy na zadanie techniczne na żywo?',
+  ]) {
+    assert.equal(detectQuestion(text).isQuestion, true, text);
+  }
+});
+
+test('rozmowa rekrutacyjna: small talk, oznajmienia i wtrącenia nie są pytaniem', () => {
+  for (const text of [
+    'Czyli z Reactem pracowałeś głównie w poprzedniej firmie, tak?',
+    'Dzień dobry, słyszymy się?',
+    'Czy widać mój ekran?',
+    'Okej, to możemy zaczynać.',
+    'Super, dzięki, to wszystko z naszej strony.',
+    'Projekt trwa trzy miesiące i jest w pełni zdalny.',
+    'Klient robi sklep internetowy, backend jest w Pythonie.',
+    'Mhm, okej, rozumiem.',
+    'Wrócimy do ciebie z feedbackiem do poniedziałku.',
+    'Podobało mi się, jak opisałeś ten projekt.',
+    'To jest projekt, w którym pracowałeś z zespołem pięciu osób.',
+    'Nie wiem, jak to dokładnie wygląda u klienta.',
+    'Cześć!',
+    'Dziękuję za uwagę.',
+    'Jak już mówiłem, sprinty są dwutygodniowe.',
+    'Dobra, to ja zapisuję, że od zaraz.',
+    'Opowiadałeś wcześniej o swoim sklepie, to fajny projekt.',
+    'Jak widzisz, projekt jest dość duży.',
+    'Jak wiesz, klient jest z Niemiec.',
+    'Widać mnie dobrze?',
+    'Masz rację, to dobry pomysł.',
+    'Co ciekawe, klient sam pisze testy.',
+  ]) {
+    assert.equal(detectQuestion(text).isQuestion, false, text);
+  }
 });

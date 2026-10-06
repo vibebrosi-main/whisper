@@ -98,11 +98,23 @@ public struct WhisperClient: Sendable {
                                        quality: quality, format: "verbose_json")
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         let segments = json?["segments"] as? [[String: Any]] ?? []
-        return segments.compactMap { segment in
-            guard let start = segment["start"] as? Double, let end = segment["end"] as? Double else { return nil }
-            let text = Text.cleanWhisper(segment["text"] as? String ?? "")
-            return text.isEmpty ? nil : TimedText(start: start, end: end, text: text)
+        var out: [TimedText] = []
+        var raw: [String] = []
+        for segment in segments {
+            guard let start = segment["start"] as? Double, let end = segment["end"] as? Double else { continue }
+            let text = segment["text"] as? String ?? ""
+            // Segment, który nie zaczyna się od spacji, to ciąg dalszy słowa
+            // rozciętego na granicy poprzedniego, więc doklejamy go bez przerwy.
+            if let first = text.first, !first.isWhitespace, let last = out.indices.last {
+                raw[last] += text
+                out[last].end = end
+            } else {
+                out.append(TimedText(start: start, end: end, text: ""))
+                raw.append(text)
+            }
         }
+        for i in out.indices { out[i].text = Text.cleanWhisper(raw[i]) }
+        return out.filter { !$0.text.isEmpty }
     }
 
     private func inference(_ pcm: [Float], sampleRate: Int, context: String,
@@ -127,6 +139,11 @@ public struct WhisperClient: Sendable {
         field("temperature", "0")
         // Bez tego whisper.cpp dokleja halucynacje na ciszy.
         field("no_speech_thold", "0.6")
+        // whisper.cpp tnie segmenty po tokenach, czyli w środku słowa
+        // („poniedz" + „iałek"), a granice oddaje jako `\n`. Zmierzone
+        // 2026-10-06 na `small`: bez tego co trzecie długie słowo w notatce
+        // było rozbite („odpow iedzialny", „zatrudn ieniowa").
+        field("split_on_word", "true")
         if quality.suppressNonSpeech { field("suppress_nst", "true") }
         if let beam = quality.beamSize { field("beam_size", String(beam)) }
         if !context.isEmpty { field("prompt", context) }

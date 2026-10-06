@@ -141,6 +141,167 @@
   ],
   "questionCases": [
     {
+      "text": "Okej, to opowiedz mi teraz więcej o tym swoim ostatnim projekcie, czym się tam zajmowałeś, za co byłeś odpowiedzialny.",
+      "isQuestion": true,
+      "confidence": 0.8,
+      "reason": "słowo-pytające+do-rozmówcy+zwrot-pytający",
+      "question": "to opowiedz mi teraz więcej o tym swoim ostatnim projekcie, czym się tam zajmowałeś, za co byłeś odpowiedzialny."
+    },
+    {
+      "text": "Tak, ale pozwól, że zacznijmy od tego, jak wygląda sytuacja zatrudnieniowa teraz u ciebie, dlaczego szukasz pracy.",
+      "isQuestion": true,
+      "confidence": 0.8,
+      "reason": "słowo-pytające+do-rozmówcy+zwrot-pytający",
+      "question": "jak wygląda sytuacja zatrudnieniowa teraz u ciebie, dlaczego szukasz pracy."
+    },
+    {
+      "text": "Wcześniej to były obowiązki raczej związane z testami manualnymi. Zgadza się?",
+      "isQuestion": true,
+      "confidence": 1,
+      "reason": "pytajnik+zwrot-pytający",
+      "question": "Wcześniej to były obowiązki raczej związane z testami manualnymi. Zgadza się?"
+    },
+    {
+      "text": "Okej, rzeczy administracyjne. Są trzy. Pierwsze, od kiedy jesteś dostępny.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "zwrot-pytający",
+      "question": "Pierwsze, od kiedy jesteś dostępny."
+    },
+    {
+      "text": "Okej, mam pytanie, czym różni się Vue od Nuxta?",
+      "isQuestion": true,
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające+zwrot-pytający",
+      "question": "czym różni się Vue od Nuxta?"
+    },
+    {
+      "text": "I rozumiem, że to zatrudnienie do końca roku jest dla ciebie okej.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "zwrot-pytający",
+      "question": "I rozumiem, że to zatrudnienie do końca roku jest dla ciebie okej."
+    },
+    {
+      "text": "Nie, po prostu jakie featury w danej aplikacji stworzyłeś przy użyciu tego frameworku, co w nim napisałeś.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "słowo-pytające+do-rozmówcy",
+      "question": "po prostu jakie featury w danej aplikacji stworzyłeś przy użyciu tego frameworku, co w nim napisałeś."
+    },
+    {
+      "text": "Tak, ja się może połączę, jeżeli ty masz jakieś konkretne pytania, to śmiało możesz je zadawać.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "zwrot-pytający",
+      "question": "ja się może połączę, jeżeli ty masz jakieś konkretne pytania, to śmiało możesz je zadawać."
+    },
+    {
+      "text": "Podobało mi się, jak to zrobiłeś.",
+      "isQuestion": false,
+      "confidence": 0,
+      "reason": "brak-sygnałów",
+      "question": ""
+    },
+    {
+      "text": "Nie, po co to robić.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "Jak widzisz, projekt jest dość duży.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "Jak wiesz, klient jest z Niemiec.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "A co robisz, kiedy nie zgadzasz się z decyzją lidera.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "słowo-pytające+do-rozmówcy",
+      "question": "A co robisz, kiedy nie zgadzasz się z decyzją lidera."
+    },
+    {
+      "text": "Jak radzisz sobie z presją czasu.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "słowo-pytające+do-rozmówcy",
+      "question": "Jak radzisz sobie z presją czasu."
+    },
+    {
+      "text": "Widać mnie dobrze?",
+      "isQuestion": false,
+      "confidence": 0,
+      "reason": "small-talk",
+      "question": ""
+    },
+    {
+      "text": "Masz rację, to dobry pomysł.",
+      "isQuestion": false,
+      "confidence": 0,
+      "reason": "brak-sygnałów",
+      "question": ""
+    },
+    {
+      "text": "Jesteś gotowy na zadanie techniczne na żywo?",
+      "isQuestion": true,
+      "confidence": 0.6,
+      "reason": "pytajnik",
+      "question": "Jesteś gotowy na zadanie techniczne na żywo?"
+    },
+    {
+      "text": "Co ciekawe, klient sam pisze testy.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
+      "text": "A jak podchodzisz do testowania komponentów.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "słowo-pytające+do-rozmówcy",
+      "question": "A jak podchodzisz do testowania komponentów."
+    },
+    {
+      "text": "Gdzie się widzisz za pięć lat?",
+      "isQuestion": true,
+      "confidence": 1,
+      "reason": "pytajnik+słowo-pytające",
+      "question": "Gdzie się widzisz za pięć lat?"
+    },
+    {
+      "text": "Rozumiem, że praca w pełni zdalna ci pasuje.",
+      "isQuestion": true,
+      "confidence": 0.4,
+      "reason": "zwrot-pytający",
+      "question": "Rozumiem, że praca w pełni zdalna ci pasuje."
+    },
+    {
+      "text": "Dzień dobry, słyszymy się?",
+      "isQuestion": false,
+      "confidence": 0,
+      "reason": "small-talk",
+      "question": ""
+    },
+    {
+      "text": "Jak widzisz, projekt jest dość duży.",
+      "isQuestion": false,
+      "confidence": 0.2,
+      "reason": "słowo-pytające",
+      "question": ""
+    },
+    {
       "text": "A jakie RPO i RTO to nam daje?",
       "isQuestion": true,
       "confidence": 1,
@@ -250,7 +411,7 @@
       "isQuestion": true,
       "confidence": 1,
       "reason": "pytajnik+słowo-pytające+zwrot-pytający",
-      "question": "czy LazyColumn recyklinguje elementy tak samo jak RecyclerView?"
+      "question": "Wracając do listy mam pytanie, czy LazyColumn recyklinguje elementy tak samo jak RecyclerView?"
     },
     {
       "text": "Dobra. Teraz o wydajności. Czy ktoś wie, jak dokładnie działa remember w Compose? Remember zapamiętuje wartość w slocie kompozycji.",
@@ -320,7 +481,7 @@
       "isQuestion": true,
       "confidence": 1,
       "reason": "pytajnik+słowo-pytające",
-      "question": "jak długo programujesz?"
+      "question": "Fajnie. Dobra, a powiedz mi, jak długo programujesz?"
     },
     {
       "text": "Okej, a jak twoja praca wyglądała jako pełen etat? I jakie to były firmy? I jak to był podział? Bo ciągle mówisz.",
@@ -995,6 +1156,14 @@
     {
       "input": "Dziękuję za uwagę.",
       "result": ""
+    },
+    {
+      "input": " jest firmą outs\nourcingową.\n Najpóźniej w poniedz\niałek.\n",
+      "result": "jest firmą outsourcingową. Najpóźniej w poniedziałek."
+    },
+    {
+      "input": " Google\nCloud, B2\nB, dobry,\nzaczynamy.",
+      "result": "Google Cloud, B2 B, dobry, zaczynamy."
     }
   ]
 }

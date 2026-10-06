@@ -69,6 +69,9 @@ export class WhisperLocalClient {
     form.append('temperature', '0');
     // Bez tego whisper.cpp dokleja halucynacje na ciszy.
     form.append('no_speech_thold', '0.6');
+    // whisper.cpp tnie segmenty po tokenach, czyli w środku słowa
+    // („poniedz" + „iałek"), a granice segmentów oddaje jako `\n`.
+    form.append('split_on_word', 'true');
 
     let response;
     try {
@@ -103,6 +106,10 @@ export class WhisperLocalClient {
  */
 export function cleanText(raw) {
   return stripHallucinations(String(raw ?? '')
+    // Granica segmentu w środku słowa: litera, łamanie, mała litera bez
+    // spacji (nowe słowo whisper zaczyna od spacji). Bez tego
+    // „odpow\niedzialny" dawało w notatce „odpow iedzialny".
+    .replace(/(?<=[\p{L}\p{N}])\n(?=\p{Ll})/gu, '')
     .replace(/\[[^\]]*\]/g, ' ')       // [BLANK_AUDIO], [Muzyka] itd.
     .replace(/\([^)]*\)/g, ' ')        // (szum), (music)
     .replace(/\s+/g, ' ')

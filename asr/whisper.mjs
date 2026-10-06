@@ -75,6 +75,8 @@ const child = spawn(
     '--port', String(options.port),
     '-t', String(options.threads),
     '-l', options.lang,
+    // Segmenty cięte na granicy słowa, nie tokenu (inaczej „poniedz" + „iałek").
+    '-sow',
   ],
   { stdio: 'inherit' },
 );
