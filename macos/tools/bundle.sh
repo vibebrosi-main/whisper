@@ -88,6 +88,12 @@ if [ -z "$IDENTITY" ]; then
     | grep -m1 -E "Apple Development|Developer ID Application|Apple Distribution" \
     | sed -E 's/.*"(.*)".*/\1/' || true)"
 fi
+# Bez konta Apple Developer: lokalny certyfikat z tools/make-cert.sh. Jest
+# samopodpisany, więc `find-identity -v` go pomija (nie jest „zaufany"), ale
+# do podpisu i stałej tożsamości w TCC wystarcza.
+if [ -z "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -q '"call-whisper local"'; then
+  IDENTITY="call-whisper local"
+fi
 
 # Najpierw zagnieżdżona binarka, potem całość - podpis aplikacji pieczętuje
 # zasoby, więc kolejność odwrotna unieważniłaby go.
@@ -108,6 +114,7 @@ if [ -n "$IDENTITY" ]; then
 else
   echo "==> podpisuję ad-hoc (brak certyfikatu deweloperskiego)"
   echo "    UWAGA: przy ad-hoc każda przebudowa unieważnia zgody TCC."
+  echo "    Naprawa: bash macos/tools/make-cert.sh (lokalny certyfikat, raz)."
   codesign --force --deep --sign - \
     --identifier "$BUNDLE_ID" \
     --options runtime \

@@ -116,6 +116,7 @@ public final class AppSettings: ObservableObject {
         case markdownLocale, absoluteTimestamps, minConfidence, title, projectContextPath
         case asrBackend, whisperModel, whisperPort, autoStartWhisper, identifySpeakers
         case diarizeAfter, detectMeetings, autoStartOnMeeting, followOBS, whisperVocabulary
+        case notchIsland
     }
 
     /// Domyślny język mowy bierzemy z systemu, a nie na sztywno — inaczej
@@ -165,6 +166,7 @@ public final class AppSettings: ObservableObject {
             Key.detectMeetings.rawValue: true,
             Key.autoStartOnMeeting.rawValue: false,
             Key.followOBS.rawValue: true,
+            Key.notchIsland.rawValue: true,
         ])
     }
 
@@ -282,6 +284,13 @@ public final class AppSettings: ObservableObject {
     public var detectMeetings: Bool {
         get { get(.detectMeetings, true) }
         set { set(.detectMeetings, newValue) }
+    }
+
+    /// Podpowiedzi w notchu (wyspa w stylu Dynamic Island) zamiast tylko
+    /// w pływającej nakładce.
+    public var notchIsland: Bool {
+        get { get(.notchIsland, true) }
+        set { set(.notchIsland, newValue) }
     }
 
     /// Zaczynaj nasłuch sam, gdy wykryjesz rozmowę, i kończ, gdy się skończy.

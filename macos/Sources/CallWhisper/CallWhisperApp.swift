@@ -10,6 +10,7 @@ import CallWhisperCore
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     let recorder = Recorder()
     let meetings = MeetingWatcher()
+    let notch = NotchIslandController()
     let obs = OBSLink()
     private let settings = AppSettings.shared
     /// Nasłuch włączony przez wykrywanie — tylko taki wolno nam samym zatrzymać.
@@ -23,6 +24,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var canNotify: Bool { Bundle.main.bundleIdentifier != nil }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if NotchIslandController.demoRequested {
+            NSApp.setActivationPolicy(.accessory)
+            DispatchQueue.main.async { NSApp.windows.forEach { $0.orderOut(nil) } }
+            Task { await notch.demo(); NSApp.terminate(nil) }
+            return
+        }
         // Serwery mowy osierocone przez poprzednie, przerwane uruchomienie.
         Task.detached { WhisperServer.reapOrphans() }
         if canNotify {
@@ -38,6 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         obs.onRecordStart = { [weak self] origin in self?.obsRecordingStarted(at: origin) }
         obs.onRecordStop = { [weak self] path in self?.obsRecordingStopped(path: path) }
         syncOBS()
+        syncNotch()
+    }
+
+    /// Wyspa w notchu włączana i wyłączana z Ustawień bez restartu.
+    func syncNotch() {
+        if AppSettings.shared.notchIsland { notch.start(recorder: recorder) } else { notch.stop() }
     }
 
     /// Zwykłe wyjście (⌘Q) gasi serwer mowy od razu; na `await` nie ma tu czasu.
@@ -169,6 +182,7 @@ struct CallWhisperApp: App {
                 .tint(M3.color.primary)
                 .onChange(of: settings.detectMeetings) { _, _ in delegate.syncMeetingDetection() }
                 .onChange(of: settings.followOBS) { _, _ in delegate.syncOBS() }
+                .onChange(of: settings.notchIsland) { _, _ in delegate.syncNotch() }
         }
     }
 }

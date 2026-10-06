@@ -76,6 +76,11 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
+            Toggle("Podpowiedzi w notchu", isOn: Binding(
+                get: { settings.notchIsland }, set: { settings.notchIsland = $0 }))
+            Text("Wyspa nad kamerą rozwija się przy każdym pytaniu, więc podpowiedź czytasz, patrząc prawie w obiektyw. Nie widać jej przy udostępnianiu ekranu. Dwuklik w wyspę włącza i wyłącza nasłuch.")
+                .font(.caption).foregroundStyle(.secondary)
+
             Section("Wykrywanie rozmów") {
                 Toggle("Powiadamiaj, gdy zaczyna się rozmowa", isOn: Binding(
                     get: { settings.detectMeetings }, set: { settings.detectMeetings = $0 }))

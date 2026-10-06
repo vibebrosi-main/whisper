@@ -10,6 +10,11 @@ public final class Recorder: ObservableObject {
     @Published public private(set) var segments: [Segment] = []
     @Published public private(set) var answers: [AssistantItem] = []
     @Published public private(set) var isRunning = false
+    /// Blokada App Nap na czas nasłuchu. W rozmowie aplikacja jest w tle,
+    /// a macOS dławi wtedy timery i rysowanie: zmierzone 2026-10-06, 2,5 s
+    /// `Task.sleep` trwało 4,1 s, a wyspa w notchu stała na „Myślę…", choć
+    /// odpowiedź już napływała. To samo opóźniałoby rundy transkrypcji.
+    private var activity: NSObjectProtocol?
     @Published public private(set) var status = "Gotowy"
     @Published public private(set) var lastError: String?
     @Published public private(set) var speakerCount = 0
@@ -162,6 +167,8 @@ public final class Recorder: ObservableObject {
         }
 
         isRunning = true
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .latencyCritical], reason: "Nasłuch rozmowy i podpowiedzi na żywo")
         // Język w statusie celowo: cicha rozbieżność między zapisanym językiem
         // a tym, czego oczekuje użytkownik, kosztowała już jedną sesję debugowania
         // (whisper dostawał `language=en` i tłumaczył polski na angielski).
@@ -280,6 +287,8 @@ public final class Recorder: ObservableObject {
         // przez cały czas domykania — a to potrafiło potrwać, bo `flush`
         // dokańczał zaległe audio i wysyłał ostatnie żądanie do whispera.
         isRunning = false
+        if let activity { ProcessInfo.processInfo.endActivity(activity) }
+        activity = nil
         status = "Zatrzymuję…"
 
         ticker?.cancel()

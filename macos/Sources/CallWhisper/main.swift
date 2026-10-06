@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import AVFoundation
 import CallWhisperCore
 import CallWhisperKit
@@ -405,6 +406,9 @@ func flagValue(_ name: String) -> String? {
     guard let i = arguments.firstIndex(of: name), arguments.count > i + 1 else { return nil }
     return arguments[i + 1]
 }
+// Demo wyspy idzie przez zwykły start aplikacji: okno na ekranie z pętlą
+// zdarzeń uruchomioną z top-level `await` nie odświeżało się w ogóle.
+NotchIslandController.demoRequested = arguments.contains("--notch-demo")
 if let index = arguments.firstIndex(of: "--snapshot"), arguments.count > index + 1 {
     let file = arguments.count > index + 2 ? arguments[index + 2] : nil
     exit(await runSnapshot(directory: arguments[index + 1], file: file))

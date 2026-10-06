@@ -646,6 +646,87 @@ monit wyskakiwał w środku rozmowy. Teraz klucz leży w
 ochrona, jaką dawało otwarte ACL) i jest czytany tylko dla backendu API. Stary
 wpis z Keychaina przenosimy raz, i tylko gdy backendem jest API.
 
+### Podpis: dlaczego ad-hoc nie wystarczy
+
+Objaw jest podstępny: w Ustawieniach systemowych przełącznik przy
+call-whisper w „Nagrywaniu ekranu i dźwięku systemowego" jest **włączony**,
+a panel Gotowość i tak melduje „Zgoda na nagrywanie ekranu" na czerwono.
+
+TCC (zgody na ekran i mikrofon) rozpoznaje aplikację po *designated
+requirement* podpisu. Przy podpisie ad-hoc jest nim
+`cdhash H"…"`, czyli skrót konkretnej binarki. Każde `npm run mac:build`
+daje nowy skrót, więc zgoda dotyczy już nieistniejącej wersji, a nowej system
+po cichu odmawia. Sprawdzenie:
+
+```bash
+codesign -d -r- macos/build/call-whisper.app
+# ad-hoc:      designated => cdhash H"efb5…"                     <- zmienia się co build
+# certyfikat:  designated => identifier "ai.callwhisper.mac" and certificate leaf = H"1e63…"
+```
+
+Bez konta Apple Developer wystarczy lokalny, samopodpisany certyfikat:
+
+```bash
+bash macos/tools/make-cert.sh      # raz: „call-whisper local" w pęku kluczy logowania
+npm run mac:build                  # bundle.sh sam go wykrywa
+tccutil reset ScreenCapture ai.callwhisper.mac
+```
+
+Po resecie trzeba raz włączyć zgodę od nowa i uruchomić aplikację ponownie;
+potem przeżywa każdą przebudowę. Kolejność wyboru w `bundle.sh`: `CW_IDENTITY`,
+certyfikat Apple (Development / Developer ID), „call-whisper local", a dopiero
+na końcu ad-hoc, z ostrzeżeniem.
+
+Dwie pułapki z samego skryptu:
+
+- `find-identity -v` pomija samopodpisany certyfikat („nie zaufany",
+  `CSSMERR_TP_NOT_TRUSTED`), choć `codesign` podpisuje nim bez problemu,
+  więc `bundle.sh` szuka go bez `-v`.
+- Plik p12 robi systemowe `/usr/bin/openssl` (LibreSSL). OpenSSL 3
+  z Homebrew szyfruje p12 algorytmem, którego `security import` nie czyta.
+
+Taki certyfikat działa tylko na tym Macu. Do rozdania aplikacji innym trzeba
+Developer ID i notaryzacji.
+
+### Podpowiedzi w notchu
+
+Nakładka w rogu ekranu ma jedną wadę: wzrok ucieka od kamery i na rozmowie
+widać, że czytasz. Notch jest dokładnie nad kamerą, więc podpowiedź czytana
+stamtąd wygląda jak patrzenie rozmówcy w oczy. Stąd wyspa w stylu Dynamic
+Island (Atoll, boring.notch), bez żadnej zależności:
+
+- **nasłuch**: „uszy" po bokach notcha, kropka i czas rozmowy;
+- **pytanie**: wyspa rozwija się w dół od razu, z „Myślę…", a odpowiedź
+  napływa słowo po słowie, czcionką 16 pt;
+- **po odpowiedzi** zostaje tyle, ile trwa przeczytanie jej na głos
+  (~2,5 słowa na sekundę), potem się zwija. Kursor nad wyspą ją zatrzymuje,
+  pinezka przypina, dwuklik w pasek włącza i wyłącza nasłuch.
+
+Na ekranie bez notcha ta sama wyspa wisi jako pigułka pod paskiem menu.
+Ustawienia → „Podpowiedzi w notchu".
+
+Trzy rzeczy, których nie widać, a bez których to nie działało:
+
+- `sharingType = .none`: wyspy nie ma na udostępnianym ekranie ani na
+  nagraniu, więc rozmówca nie zobaczy podpowiedzi.
+- **App Nap**: w rozmowie aplikacja jest w tle i macOS dławi jej timery
+  i rysowanie. Zmierzone: 2,5 s czekania trwało 4,1 s, a wyspa stała na
+  „Myślę…", choć odpowiedź już napływała. Nasłuch trzyma teraz
+  `ProcessInfo.beginActivity(.latencyCritical)`, co pomaga też rundom
+  transkrypcji.
+- `.symbolEffect(.pulse, options: .repeating)` na iskierkach zatykał główny
+  wątek panelu (2,5 s -> 6,2 s), a `NSHostingView` jako `contentView`
+  zmieniający rozmiar co kilkadziesiąt ms kończył się wyjątkiem AppKit
+  o pętli „Update Constraints". Iskierki są statyczne, a hosting view siedzi
+  w kontenerze na autoresizingu.
+
+Wygląd sprawdza się bez rozmowy:
+
+```bash
+call-whisper --notch-demo          # przejście przez wszystkie stany na ekranie
+call-whisper --snapshot <katalog>  # stany wyspy jako PNG, obok okna głównego
+```
+
 ### Nagrywanie razem z OBS
 
 **Słuchaj** uruchamia OBS, jeśli nie działa, i włącza w nim nagrywanie.
@@ -1133,7 +1214,8 @@ Aplikacja natywna — te same warstwy, ten sam podział na czysty rdzeń i platf
 macos/
 ├─ Package.swift                SwiftPM, zero zależności zewnętrznych
 ├─ tools/
-│  ├─ bundle.sh                 składa .app + podpis ad-hoc (bez tego brak TCC)
+│  ├─ bundle.sh                 składa .app + podpis (certyfikat, inaczej ad-hoc)
+│  ├─ make-cert.sh              lokalny certyfikat, żeby zgody TCC przeżyły build
 │  └─ gen-fixtures.mjs          wektory referencyjne z implementacji JS
 └─ Sources/
    ├─ CallWhisperCore/          ← rdzeń: czysta logika, bez UI i bez AV
@@ -1142,6 +1224,7 @@ macos/
    │  ├─ TranscriptStore.swift  segmenty, mówcy, finalizacja, pieczętowanie
    │  ├─ Markdown.swift         renderer (pl / en)
    │  ├─ Assistant.swift        wykrywanie pytań, prompt, stan odpowiedzi
+   │  ├─ Vocabulary.swift       słownictwo whispera z pliku kontekstu
    │  ├─ DSP.swift              FFT (Accelerate), MFCC, VAD
    │  └─ Diarizer.swift         embedding, klastrowanie online, framer
    ├─ CallWhisperKit/           ← platforma
@@ -1155,6 +1238,7 @@ macos/
       ├─ main.swift             wejście: UI albo --probe
       ├─ MainView.swift         transkrypt + panel asystenta
       ├─ Overlay.swift          NSPanel nad rozmową, nie kradnie fokusu
+      ├─ NotchIsland.swift      wyspa w notchu (Dynamic Island), --notch-demo
       └─ SettingsView.swift     ustawienia
 ```
 
@@ -1282,9 +1366,10 @@ Aplikacja natywna:
   ScreenCaptureKit tak właśnie wydaje dźwięk systemu. Konfiguracja strumienia
   bierze najmniejszą dopuszczalną klatkę (2×2 px, raz na sekundę), ale samej
   zgody nie da się ominąć.
-- Podpis wymaga **certyfikatu deweloperskiego**, żeby zgody TCC przeżywały
-  przebudowy — patrz „Podpis: dlaczego ad-hoc nie wystarczy". Do rozdania innym
-  trzeba dodatkowo notaryzacji.
+- Podpis wymaga **certyfikatu** (deweloperskiego albo lokalnego z
+  `make-cert.sh`), żeby zgody TCC przeżywały przebudowy, patrz „Podpis:
+  dlaczego ad-hoc nie wystarczy". Do rozdania innym trzeba Developer ID
+  i notaryzacji.
 - **Klucz API w Keychainie jest czytelny dla każdego procesu na Twoim koncie.**
   To świadoma decyzja, opisana niżej — nie przypadek.
 - **Domyślny model podpowiedzi jest darmowy, a więc wolny** (~5,7 s do
