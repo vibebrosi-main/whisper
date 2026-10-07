@@ -1,6 +1,8 @@
 import Foundation
 @preconcurrency import AVFoundation
 import ScreenCaptureKit
+import CoreAudio
+import AudioToolbox
 import CallWhisperCore
 
 /// Docelowy format dla całego łańcucha: 16 kHz, mono, Float32.
@@ -205,12 +207,36 @@ public final class MicrophoneCapture: @unchecked Sendable {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
 
-    public func start(sessionStartMs: Double = nowMs(),
+    /// Mikrofon do wyboru: `id` to UID z CoreAudio, ten sam, który przyjmuje `start`.
+    public struct Device: Hashable, Sendable {
+        public let id: String
+        public let name: String
+    }
+
+    public static var devices: [Device] {
+        AVCaptureDevice.DiscoverySession(deviceTypes: [.microphone, .external],
+                                         mediaType: .audio, position: .unspecified)
+            .devices.map { Device(id: $0.uniqueID, name: $0.localizedName) }
+    }
+
+    public static var defaultDevice: Device? {
+        AVCaptureDevice.default(for: .audio).map { Device(id: $0.uniqueID, name: $0.localizedName) }
+    }
+
+    /// `deviceID` pusty albo nieznany (urządzenie odłączone) = wejście domyślne systemu.
+    public func start(deviceID: String = "",
+                      sessionStartMs: Double = nowMs(),
                       onChunk: @escaping @Sendable (PCMChunk) -> Void) throws {
         guard !running else { return }
         self.sessionStartMs = sessionStartMs
         firstHostTime = nil
         let input = engine.inputNode
+        // Urządzenie trzeba podpiąć przed odczytem formatu: każde ma własną
+        // częstotliwość próbkowania.
+        if var device = Self.audioDeviceID(uid: deviceID), let unit = input.audioUnit {
+            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                 &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else { throw MicError.noInput }
 
@@ -232,6 +258,21 @@ public final class MicrophoneCapture: @unchecked Sendable {
         engine.prepare()
         try engine.start()
         running = true
+    }
+
+    private static func audioDeviceID(uid: String) -> AudioDeviceID? {
+        guard !uid.isEmpty else { return nil }
+        var cfUID = uid as CFString
+        var device = AudioDeviceID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
+                                                 mScope: kAudioObjectPropertyScopeGlobal,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        let status = withUnsafePointer(to: &cfUID) {
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address,
+                                       UInt32(MemoryLayout<CFString>.size), $0, &size, &device)
+        }
+        return status == noErr && device != kAudioObjectUnknown ? device : nil
     }
 
     public func stop() {

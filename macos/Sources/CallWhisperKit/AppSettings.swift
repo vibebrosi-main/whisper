@@ -112,7 +112,7 @@ public final class AppSettings: ObservableObject {
     public static let shared = AppSettings()
 
     public enum Key: String {
-        case language, modelID, assistantEnabled, autoAsk, useMicrophone, assistantBackend, claudeModel
+        case language, modelID, assistantEnabled, autoAsk, useMicrophone, useSystemAudio, micDeviceID, assistantBackend, claudeModel
         case markdownLocale, absoluteTimestamps, minConfidence, title, projectContextPath
         case asrBackend, whisperModel, whisperPort, autoStartWhisper, identifySpeakers
         case diarizeAfter, detectMeetings, autoStartOnMeeting, followOBS, whisperVocabulary
@@ -143,6 +143,8 @@ public final class AppSettings: ObservableObject {
             // łapie echo i każda wypowiedź trafia do transkryptu dwa razy —
             // raz jako „Rozmówcy", raz jako „Ty".
             Key.useMicrophone.rawValue: false,
+            Key.useSystemAudio.rawValue: true,
+            Key.micDeviceID.rawValue: "",
             Key.markdownLocale.rawValue: "pl",
             Key.absoluteTimestamps.rawValue: false,
             Key.minConfidence.rawValue: 0.35,
@@ -221,6 +223,19 @@ public final class AppSettings: ObservableObject {
     public var useMicrophone: Bool {
         get { get(.useMicrophone, false) }
         set { set(.useMicrophone, newValue) }
+    }
+
+    /// Dźwięk komputera (to, co słychać z głośników). Wyłączony = sam mikrofon,
+    /// np. rozmowa na żywo przy stole.
+    public var useSystemAudio: Bool {
+        get { get(.useSystemAudio, true) }
+        set { set(.useSystemAudio, newValue) }
+    }
+
+    /// UID mikrofonu z CoreAudio; pusty = wejście domyślne systemu.
+    public var micDeviceID: String {
+        get { get(.micDeviceID, "") }
+        set { set(.micDeviceID, newValue) }
     }
 
     public var markdownLocale: String {

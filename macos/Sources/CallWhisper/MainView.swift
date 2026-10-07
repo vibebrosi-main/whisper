@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AVFoundation
 import CallWhisperKit
 import CallWhisperCore
 
@@ -23,28 +24,34 @@ struct MainView: View {
     @State private var busy = false
     @State private var showSetup = false
     @State private var attachment: AssistantImage?
+    /// Odświeżane przy podłączeniu i odłączeniu urządzenia.
+    @State private var micDevices = MicrophoneCapture.devices
+    @State private var defaultMic = MicrophoneCapture.defaultDevice
     @FocusState private var questionFocused: Bool
     @StateObject private var paste = PasteWatcher()
 
     var body: some View {
         // Zwykły `VStack`, nie `safeAreaInset`: zagnieżdżone inset-y nie
         // rezerwowały sobie miejsca nawzajem i panel przysłaniał pole pytania.
-        VStack(spacing: 0) {
-            topAppBar
-            if let meeting = meetings.activeMeeting, !recorder.isRunning, !recorder.isProcessing {
-                meetingBanner(meeting)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+        HStack(spacing: 0) {
+            navigationRail
+            VStack(spacing: 0) {
+                topAppBar
+                if let meeting = meetings.activeMeeting, !recorder.isRunning, !recorder.isProcessing {
+                    meetingBanner(meeting)
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 12)
+                }
+                HStack(spacing: 12) {
+                    transcriptCard
+                        .frame(minWidth: 340, maxWidth: .infinity)
+                    assistantCard
+                        .frame(minWidth: 300, idealWidth: 380, maxWidth: 440)
+                }
+                .padding(.trailing, 16)
+                .frame(maxHeight: .infinity)
+                statusLine
             }
-            HStack(spacing: 12) {
-                transcriptCard
-                    .frame(minWidth: 340, maxWidth: .infinity)
-                assistantCard
-                    .frame(minWidth: 300, idealWidth: 380, maxWidth: 440)
-            }
-            .padding(.horizontal, 16)
-            .frame(maxHeight: .infinity)
-            statusLine
         }
         .background(M3.color.page)
         .tint(M3.color.primary)
@@ -63,10 +70,6 @@ struct MainView: View {
 
     private var topAppBar: some View {
         HStack(spacing: 4) {
-            // Miejsce na światła okna: pasek tytułu jest ukryty, a pasek
-            // aplikacji M3 zajmuje jego miejsce.
-            Color.clear.frame(width: 64)
-
             Image(systemName: "waveform.circle.fill")
                 .font(.system(size: 22))
                 .foregroundStyle(M3.color.primary)
@@ -75,23 +78,32 @@ struct MainView: View {
                 .foregroundStyle(M3.color.onSurface)
                 .lineLimit(1)
                 .padding(.leading, 6)
-
             Spacer(minLength: 16)
+        }
+        .padding(.leading, 4)
+        .frame(height: 56)
+    }
 
+    // MARK: - szyna nawigacji
+
+    /// Szyna nawigacji M3 po lewej: wszystkie funkcje okna z etykietami,
+    /// zamiast samych ikon w górnym pasku.
+    private var navigationRail: some View {
+        VStack(spacing: 12) {
             Button {
                 if recorder.isProcessing { recorder.cancelProcessing() } else { ImportPanel.run(recorder) }
             } label: {
                 Label(recorder.isProcessing ? "Przerwij" : "Importuj",
                       systemImage: recorder.isProcessing ? "xmark" : "square.and.arrow.down")
             }
-            .buttonStyle(M3IconButtonStyle())
+            .buttonStyle(M3RailButtonStyle())
             .disabled(recorder.isRunning)
             .help(recorder.isProcessing
                   ? "Przerwij import albo rozpoznawanie głosów"
                   : "Transkrybuj nagranie albo wideo (mp4, mov, m4a, mp3, wav). Można też upuścić plik na transkrypt.")
 
             // Podpowiedzi bywają hałasem (film, monolog), więc wyłącznik musi
-            // być pod ręką. Wariant „selected" przycisku-ikony M3 pokazuje stan.
+            // być pod ręką. Wariant „selected" pokazuje stan.
             // Ikona ta sama w obu stanach: „sparkles.slash" nie istnieje w SF
             // Symbols i SwiftUI rysuje wtedy puste miejsce.
             Button {
@@ -99,7 +111,7 @@ struct MainView: View {
             } label: {
                 Label("Podpowiedzi", systemImage: "sparkles")
             }
-            .buttonStyle(M3IconButtonStyle(selected: settings.assistantEnabled))
+            .buttonStyle(M3RailButtonStyle(selected: settings.assistantEnabled))
             .help(settings.assistantEnabled
                   ? "Podpowiedzi włączone: \(assistantLabel)"
                   : "Podpowiedzi wyłączone. Kliknij, żeby włączyć.")
@@ -109,7 +121,7 @@ struct MainView: View {
             } label: {
                 Label("Nakładka", systemImage: "rectangle.on.rectangle")
             }
-            .buttonStyle(M3IconButtonStyle(selected: overlay.isVisible))
+            .buttonStyle(M3RailButtonStyle(selected: overlay.isVisible))
             .help("Pływające okno z odpowiedziami, zostaje na wierzchu nad rozmową")
 
             // Kopiowanie do czatu ma działać także w trakcie rozmowy, więc nie
@@ -117,9 +129,9 @@ struct MainView: View {
             Button {
                 copy(recorder.segments, what: "cały transkrypt")
             } label: {
-                Label("Kopiuj transkrypt", systemImage: "doc.on.doc")
+                Label("Kopiuj", systemImage: "doc.on.doc")
             }
-            .buttonStyle(M3IconButtonStyle())
+            .buttonStyle(M3RailButtonStyle())
             .keyboardShortcut("c", modifiers: [.command, .shift])
             .disabled(recorder.segments.isEmpty)
             .help("Kopiuj wszystkie wypowiedzi do wklejenia w czat (⌘⇧C)")
@@ -137,18 +149,18 @@ struct MainView: View {
                 }
                 .disabled(exportingForClaude)
             } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18))
-                    .foregroundStyle(M3.color.onSurfaceVariant)
-                    .frame(width: 40, height: 40)
-                    .contentShape(Circle())
+                Label("Eksport", systemImage: "square.and.arrow.up")
+                    .labelStyle(M3RailLabelStyle())
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
             .disabled(recorder.segments.isEmpty || recorder.isRunning)
+            .opacity(recorder.segments.isEmpty || recorder.isRunning ? 0.38 : 1)
             .help("Eksport")
+
+            Spacer()
 
             Button {
                 recorder.refreshReadiness()
@@ -157,11 +169,19 @@ struct MainView: View {
                 Label("Gotowość", systemImage: recorder.readiness.allGood
                       ? "checkmark.seal" : "exclamationmark.triangle")
             }
-            .buttonStyle(M3IconButtonStyle(selected: !recorder.readiness.allGood))
+            .buttonStyle(M3RailButtonStyle(selected: !recorder.readiness.allGood))
             .help("Co jest potrzebne, żeby wszystko działało")
+
+            SettingsLink {
+                Label("Ustawienia", systemImage: "gearshape")
+            }
+            .buttonStyle(M3RailButtonStyle())
+            .help("Ustawienia (⌘,)")
         }
-        .padding(.horizontal, 12)
-        .frame(height: 56)
+        // Zapas na światła okna: pasek tytułu jest ukryty.
+        .padding(.top, 56)
+        .padding(.bottom, 16)
+        .frame(width: 88)
     }
 
     // MARK: - transkrypt
@@ -198,6 +218,7 @@ struct MainView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             VStack(alignment: .trailing, spacing: 10) {
+                audioSourcePicker
                 if !recorder.isRunning { captureModePicker }
                 listenFAB
             }
@@ -280,6 +301,66 @@ struct MainView: View {
         }
         .padding(4)
         .background(M3.color.card, in: RoundedRectangle(cornerRadius: M3.shape.medium))
+    }
+
+    /// Skąd idzie dźwięk: komputer (głośniki rozmowy) i/lub mikrofon. W trakcie
+    /// nasłuchu tylko pokazuje stan, bo źródeł nie da się podmienić w locie.
+    private var audioSourcePicker: some View {
+        let chosen = micDevices.first { $0.id == settings.micDeviceID }
+        return HStack(spacing: 6) {
+            Button {
+                settings.useSystemAudio.toggle()
+            } label: {
+                M3Chip(text: "Komputer", systemImage: "desktopcomputer", selected: settings.useSystemAudio)
+            }
+            .buttonStyle(.plain)
+            .help("Dźwięk z komputera: to, co słychać z rozmowy albo odtwarzanego materiału")
+
+            Button {
+                settings.useMicrophone.toggle()
+            } label: {
+                M3Chip(text: (chosen ?? defaultMic)?.name ?? "Mikrofon",
+                       systemImage: "mic.fill", selected: settings.useMicrophone)
+                    .frame(maxWidth: 240)
+            }
+            .buttonStyle(.plain)
+            .help(settings.useSystemAudio
+                  ? "Twój głos z mikrofonu. Na głośnikach łapie echo, lepiej na słuchawkach."
+                  : "Twój głos z mikrofonu")
+
+            Menu {
+                Picker("Mikrofon", selection: Binding(
+                    get: { chosen?.id ?? "" },
+                    set: { settings.micDeviceID = $0; settings.useMicrophone = true })) {
+                    Text(defaultMic.map { "Domyślny systemu (\($0.name))" } ?? "Domyślny systemu").tag("")
+                    Divider()
+                    ForEach(micDevices, id: \.id) { Text($0.name).tag($0.id) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(M3.color.onSurfaceVariant)
+                    .frame(width: 28, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Wybierz mikrofon")
+        }
+        .disabled(recorder.isRunning)
+        .padding(4)
+        .background(M3.color.card, in: RoundedRectangle(cornerRadius: M3.shape.medium))
+        .onReceive(NotificationCenter.default.publisher(for: AVCaptureDevice.wasConnectedNotification)) { _ in refreshMics() }
+        .onReceive(NotificationCenter.default.publisher(for: AVCaptureDevice.wasDisconnectedNotification)) { _ in refreshMics() }
+    }
+
+    private func refreshMics() {
+        micDevices = MicrophoneCapture.devices
+        defaultMic = MicrophoneCapture.defaultDevice
     }
 
     private var listenFAB: some View {

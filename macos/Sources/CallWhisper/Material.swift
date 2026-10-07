@@ -236,6 +236,57 @@ private struct M3FABBody: View {
     }
 }
 
+/// Przycisk szyny nawigacji M3: ikona we wskaźniku 56×32 (kapsuła), pod nią
+/// etykieta. `selected` daje wypełnienie secondary container.
+struct M3RailButtonStyle: ButtonStyle {
+    var selected = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        M3RailButtonBody(configuration: configuration, selected: selected)
+    }
+}
+
+private struct M3RailButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let selected: Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var hovered = false
+
+    var body: some View {
+        configuration.label
+            .labelStyle(M3RailLabelStyle(selected: selected,
+                                         overlayOpacity: M3.stateOpacity(hovered: hovered, pressed: configuration.isPressed)))
+            .opacity(isEnabled ? 1 : 0.38)
+            .onHover { hovered = $0 }
+    }
+}
+
+/// Wygląd pozycji szyny; osobno, bo etykieta `Menu` nie przechodzi przez
+/// `ButtonStyle`.
+struct M3RailLabelStyle: LabelStyle {
+    var selected = false
+    var overlayOpacity: Double = 0
+
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(spacing: 4) {
+            configuration.icon
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(selected ? M3.color.onSecondaryContainer : M3.color.onSurfaceVariant)
+                .frame(width: 56, height: 32)
+                .background(Capsule().fill(selected ? M3.color.secondaryContainer : .clear))
+                .overlay(Capsule().fill((selected ? M3.color.onSecondaryContainer : M3.color.onSurfaceVariant)
+                    .opacity(overlayOpacity)))
+            configuration.title
+                .font(M3.type.labelMedium)
+                .foregroundStyle(selected ? M3.color.onSurface : M3.color.onSurfaceVariant)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(width: 72)
+        .contentShape(Rectangle())
+    }
+}
+
 // MARK: - powierzchnie
 
 extension View {

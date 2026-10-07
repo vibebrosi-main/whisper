@@ -69,6 +69,10 @@ public final class Recorder: ObservableObject {
     /// okna przepada, ale czas pierwszej próbki i tak liczy się od `origin`.
     public func start(origin: Double? = nil) async {
         guard !isRunning, !isProcessing else { return }
+        guard settings.useSystemAudio || settings.useMicrophone else {
+            lastError = "Wybierz źródło dźwięku: komputer albo mikrofon"
+            return
+        }
         var origin = origin
         lastError = nil
         importedMeta = nil
@@ -108,9 +112,14 @@ public final class Recorder: ObservableObject {
             Task { @MainActor in self?.handleDetected(found) }
         }
 
-        var sources: [AudioSource] = [.system]
+        var sources: [AudioSource] = settings.useSystemAudio ? [.system] : []
         if settings.useMicrophone, await MicrophoneCapture.requestAccess() {
             sources.append(.microphone)
+        }
+        guard !sources.isEmpty else {
+            lastError = "Brak dostępu do mikrofonu"
+            await stop()
+            return
         }
 
         do {
@@ -156,7 +165,7 @@ public final class Recorder: ObservableObject {
             if let pipeline = pipelines[.microphone] {
                 let capture = MicrophoneCapture()
                 micCapture = capture
-                try capture.start(sessionStartMs: now, onChunk: { chunk in
+                try capture.start(deviceID: settings.micDeviceID, sessionStartMs: now, onChunk: { chunk in
                     pipeline.submit(chunk)
                 })
             }
@@ -175,9 +184,8 @@ public final class Recorder: ObservableObject {
         let engine = backend == .whisperLocal
             ? "whisper \(settings.whisperModel) · \(settings.languageCode)"
             : "Apple · \(settings.languageCode)"
-        status = sources.count > 1
-            ? "Słucham: system + mikrofon · \(engine)"
-            : "Słucham: system · \(engine)"
+        let heard = sources.map { $0 == .system ? "system" : "mikrofon" }.joined(separator: " + ")
+        status = "Słucham: \(heard) · \(engine)"
         if obsSession { status += " · OBS nagrywa" }
         if let obsNote { lastError = obsNote }
         startTicker()
@@ -687,7 +695,7 @@ public final class Recorder: ObservableObject {
         opts.absoluteTimestamps = absoluteTimestamps ?? settings.absoluteTimestamps
         let meta = importedMeta ?? SessionMeta(
             title: settings.title,
-            source: pipelines.count > 1 || micCapture != nil ? "mixed" : "system-audio",
+            source: pipelines.count > 1 ? "mixed" : (systemCapture == nil && micCapture != nil ? "microphone" : "system-audio"),
             startedAt: startedAt,
             endedAt: segments.last?.endedAt
         )
